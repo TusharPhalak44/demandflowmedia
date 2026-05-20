@@ -1,0 +1,68 @@
+/* Shared table alignment and layout tweaks for consistency across pages */
+
+/* Apply to all Bootstrap tables */
+.table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table th,
+.table td {
+  vertical-align: middle;
+}
+
+.table thead th {
+  white-space: nowrap;
+}
+
+.table th:last-child,
+.table td:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.serial-col {
+  width: 56px;
+  text-align: center;
+}
+
+.table.table-sm th,
+.table.table-sm td {
+  padding: 0.6rem 0.85rem;
+}
+
+.filters-card {
+  border-radius: .5rem;
+  border: 1px solid var(--app-border, #dee2e6);
+  background-color: var(--app-surface, #fff);
+}
+
+.filters-card .form-label {
+  font-size: .85rem;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--app-muted, #6c757d);
+}
+
+.filters-card .form-control,
+.filters-card .form-select {
+  font-size: .875rem;
+}
+
+.filters-card .btn {
+  font-size: .875rem;
+}
+
+.table-responsive {
+  border-radius: .5rem;
+  border: 1px solid var(--app-border, #dee2e6);
+  background-color: var(--app-surface, #fff);
+  padding: 14px;
+}
+
+.table thead th.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: var(--app-bg, #f8f9fa);
+}

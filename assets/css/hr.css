@@ -1,0 +1,69 @@
+.hr-page-header{
+  background:var(--app-surface);
+  border:1px solid var(--app-border);
+  border-radius:14px;
+  box-shadow:0 10px 26px rgba(0,0,0,.06);
+  padding:14px 16px;
+}
+.hr-page-header .breadcrumb{
+  margin:0;
+  font-size:.85rem;
+}
+.hr-page-title{
+  font-weight:700;
+  font-size:1.25rem;
+  line-height:1.2;
+}
+.hr-page-subtitle{
+  color:var(--app-muted);
+  font-size:.85rem;
+  margin-top:2px;
+}
+.hr-actions .btn{
+  border-radius:10px;
+}
+.hr-kpi{
+  background:var(--app-surface);
+  border:1px solid var(--app-border);
+  border-radius:14px;
+  box-shadow:0 10px 26px rgba(0,0,0,.06);
+  padding:14px 16px;
+  min-height:122px;
+}
+.hr-kpi .hr-kpi-label{
+  color:var(--app-muted);
+  font-size:.8rem;
+}
+.hr-kpi .hr-kpi-value{
+  font-weight:800;
+  font-size:1.25rem;
+  line-height:1.2;
+}
+.hr-kpi .hr-kpi-sub{
+  color:var(--app-muted);
+  font-size:.78rem;
+  margin-top:4px;
+}
+.hr-card{
+  background:var(--app-surface);
+  border:1px solid var(--app-border);
+  border-radius:14px;
+  box-shadow:0 10px 26px rgba(0,0,0,.06);
+}
+.hr-card .card-header{
+  border-top-left-radius:14px;
+  border-top-right-radius:14px;
+}
+.hr-table thead th{
+  background:rgba(0,0,0,.02);
+  font-weight:700;
+}
+.hr-table td,.hr-table th{
+  vertical-align:middle;
+}
+:root[data-theme="dark"] .hr-table thead th,
+body[data-theme="dark"] .hr-table thead th,
+[data-bs-theme="dark"] .hr-table thead th{
+  background:rgba(255,255,255,.03);
+  color:var(--app-text);
+}
