@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
-$allowedRoles = ['admin', 'director', 'manager_director', 'operations_director', 'operations_manager', 'qa', 'qa_agent', 'qa_manager', 'qa_director', 'agent', 'form_filler', 'email_marketing_executive', 'email_marketing_agent', 'email_marketing_manager', 'email_marketing_director'];
+$allowedRoles = ['admin', 'director', 'manager_director', 'operations_director', 'operations_manager', 'operations_agent', 'qa', 'qa_agent', 'qa_manager', 'qa_director', 'agent', 'form_filler', 'email_marketing_executive', 'email_marketing_agent', 'email_marketing_manager', 'email_marketing_director'];
 requireRole($allowedRoles);
 ensureDatabaseSchema();
 
@@ -26,13 +26,14 @@ if (!$lead) {
 $conn = getDbConnection();
 $leadId = (int)($lead['id'] ?? $leadId);
 
-if (($currentUser['role'] ?? '') === 'agent' && isset($lead['agent_id']) && (int)$lead['agent_id'] !== (int)$currentUser['id']) {
+$currentRole = (string)($currentUser['role'] ?? '');
+$isAgentRole = in_array($currentRole, ['agent', 'operations_agent', 'qa_agent', 'email_marketing_agent', 'form_filler', 'email_marketing_executive']);
+if ($isAgentRole && !isAdmin() && isset($lead['agent_id']) && (int)$lead['agent_id'] !== (int)$currentUser['id']) {
     http_response_code(403);
     echo 'Access denied';
     exit;
 }
 
-$currentRole = (string)($currentUser['role'] ?? '');
 if (hasRole(['form_filler','email_marketing_executive','email_marketing_agent','email_marketing_manager','email_marketing_director'])) {
     $leadCampaignId = (int)($lead['campaign_id'] ?? 0);
     $visible = getOpsVisibleCampaignIdsForUser((int)($currentUser['id'] ?? 0), $currentRole);
@@ -168,6 +169,7 @@ $companyWebsite = $ensureProtocol($companyWebsite);
 
 if ($edit) {
     $postTo = $_GET['post_to'] ?? 'my-leads.php';
+    $standalone = !empty($_GET['standalone']);
     $companySizeOptions = ['Myself Only','2-10','11-50','51-200','201-500','501-1,000','1,001-5,000','5,001-10,000','10,001+'];
     $countryOptions = ['United States','United Kingdom','Canada','Australia','Germany','France','India','Other'];
     $timelineOptions = ['0-3 Months','3-6 Months','6-9 Months','9-12 Months'];
@@ -227,16 +229,21 @@ if ($edit) {
         return $leadVal($v) !== '';
     };
 
-    $pageTitle = 'Edit Lead';
-    include __DIR__ . '/../../includes/layout/app_start.php';
+    if ($standalone) {
+        $pageTitle = 'Edit Lead';
+        include __DIR__ . '/../../includes/layout/app_start.php';
+    }
     ?>
-    <div class="container-fluid py-3">
-        <div class="card border-0 shadow-sm">
+    <div class="<?php echo $standalone ? 'container-fluid py-3' : ''; ?>">
+        <div class="card border-0 <?php echo $standalone ? 'shadow-sm' : ''; ?>">
+            <?php if ($standalone): ?>
             <div class="card-header bg-white py-3">
                 <h5 class="mb-0">Fill Lead Details</h5>
             </div>
+            <?php endif; ?>
             <div class="card-body p-0">
-                <form method="post" action="<?php echo htmlspecialchars($postTo); ?>" enctype="multipart/form-data" class="p-4">
+                <form method="post" action="<?php echo htmlspecialchars($postTo); ?>" enctype="multipart/form-data" class="<?php echo $standalone ? 'p-4' : ''; ?>">
+
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                     <input type="hidden" name="action" value="edit_lead">
                     <input type="hidden" name="lead_id" value="<?php echo (int)$lead['id']; ?>">
@@ -490,8 +497,8 @@ if ($edit) {
                         <?php endif; ?>
                     </div>
 
-                    <div class="d-flex justify-content-end gap-3 mt-5 border-top pt-4">
-                        <a href="<?php echo htmlspecialchars($postTo); ?>" class="btn btn-light px-4">Cancel</a>
+                    <div class="d-flex justify-content-end gap-3 mt-5 border-top pt-4 <?php echo $standalone ? '' : 'p-4'; ?>">
+                        <a href="<?php echo htmlspecialchars($postTo); ?>" class="btn btn-light px-4" <?php echo $standalone ? '' : 'data-bs-dismiss="modal"'; ?>>Cancel</a>
                         <button type="submit" class="btn btn-primary px-5">Save Details</button>
                     </div>
                 </form>
@@ -512,7 +519,9 @@ if ($edit) {
     </script>
     <?php endif; ?>
     <?php
-    include __DIR__ . '/../../includes/layout/app_end.php';
+    if ($standalone) {
+        include __DIR__ . '/../../includes/layout/app_end.php';
+    }
     exit;
 }
 

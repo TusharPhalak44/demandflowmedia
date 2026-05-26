@@ -434,7 +434,12 @@ $campaigns = getCampaigns();
     document.getElementById('editLeadModal')?.addEventListener('show.bs.modal', function (event) {
         const button = event.relatedTarget;
         const leadId = button.getAttribute('data-lead-id');
-        fetch('get_lead_details?id=' + encodeURIComponent(leadId) + '&edit=1&format=html', { credentials: 'same-origin' })
+        fetch('details?id=' + encodeURIComponent(leadId) + '&edit=1&format=html', { 
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
             .then(r => r.text())
             .then(html => { document.getElementById('editLeadBody').innerHTML = html; })
             .catch(() => { document.getElementById('editLeadBody').innerHTML = '<div class="text-danger p-3">Unable to load lead details.</div>'; });
