@@ -109,25 +109,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'&&isset($_POST['action'])&&$_POST['action'
                 $_POST['additional_description'] ?? [],
                 (int)(getCurrentUser()['id'] ?? 0)
             );
-            $updater = (int)($basic['updated_by'] ?? 0);
-            $campName = trim((string)($basic['name'] ?? ($row['name'] ?? 'Campaign')));
-            $status = trim((string)($basic['status'] ?? ($row['status'] ?? '')));
-            $msg = $campName . ($status !== '' ? (' · Status: ' . $status) : '');
-            $link = appBasePath() . '/modules/campaigns/view?id=' . (int)$id;
-            $rsU = $conn->query("SELECT id FROM users WHERE is_active = 1 AND (client_id IS NULL OR client_id = 0) AND (vendor_id IS NULL OR vendor_id = 0)");
-            if ($rsU) {
-                $rowsU = $rsU->fetch_all(MYSQLI_ASSOC) ?: [];
-                foreach ($rowsU as $ru) {
-                    $to = (int)($ru['id'] ?? 0);
-                    if ($to <= 0 || $to === $updater) continue;
-                    createNotificationSmart($to, 'campaign.updated', 'Campaign updated', $msg, $link, [
-                        'importance' => 'high',
-                        'show_toast' => true,
-                        'dedup_key' => 'camp_updated:' . (int)$id,
-                        'dedup_window_min' => 10,
-                    ]);
-                }
-            }
             header('Location: list');
             exit;
         }catch(Throwable $e){ $error=$e->getMessage(); }

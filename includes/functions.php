@@ -3074,6 +3074,14 @@ function updateLead(int $id, array $data): bool {
     $stmt->close();
     if ($ok) {
         syncLeadToCampaignTable($id);
+        if (function_exists('notifyLeadUpdated')) {
+            $actorId = (int)($data['updated_by'] ?? 0);
+            $changed = [];
+            foreach ($allowed as $col) {
+                if (array_key_exists($col, $data)) $changed[] = $col;
+            }
+            notifyLeadUpdated($id, $actorId, $changed);
+        }
     }
     return $ok;
 }
@@ -5034,16 +5042,26 @@ function createNotification(int $userId, string $type, string $title, ?string $b
 function getNotificationPreference(int $userId, string $type): array {
     $userId = (int)$userId;
     $type = trim($type);
-    if ($userId <= 0 || $type === '') return ['enabled' => true, 'mode' => 'instant', 'toast' => false];
+    $defaultToastTypes = [
+        'campaign.end_warning' => true,
+        'campaign.pacing_risk' => true,
+        'sales.followup_reminder' => true,
+        'chat.message' => true,
+        'chat.group_message' => true,
+        'lead.created' => true,
+        'lead.updated' => true,
+    ];
+    $defaultToast = !empty($defaultToastTypes[$type]);
+    if ($userId <= 0 || $type === '') return ['enabled' => true, 'mode' => 'instant', 'toast' => $defaultToast];
     ensureDatabaseSchema();
     $conn = getDbConnection();
     $stmt = $conn->prepare("SELECT delivery_mode, is_enabled, show_toast FROM notification_preferences WHERE user_id = ? AND type = ? LIMIT 1");
-    if (!$stmt) return ['enabled' => true, 'mode' => 'instant', 'toast' => false];
+    if (!$stmt) return ['enabled' => true, 'mode' => 'instant', 'toast' => $defaultToast];
     $stmt->bind_param('is', $userId, $type);
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc() ?: null;
     $stmt->close();
-    if (!$row) return ['enabled' => true, 'mode' => 'instant', 'toast' => false];
+    if (!$row) return ['enabled' => true, 'mode' => 'instant', 'toast' => $defaultToast];
     $enabled = (int)($row['is_enabled'] ?? 1) === 1;
     $mode = (string)($row['delivery_mode'] ?? 'instant');
     if (!in_array($mode, ['instant','digest'], true)) $mode = 'instant';
@@ -5308,6 +5326,7 @@ function notifyCampaignEndWarningsForUser(int $userId): void {
         if ($daysLeft < 0) $bucket = 'overdue';
         elseif ($daysLeft <= 1) $bucket = 'd1';
         elseif ($daysLeft <= 3) $bucket = 'd3';
+        elseif ($daysLeft <= 7) $bucket = 'd7';
         if ($bucket === null) continue;
 
         $campName = (string)($r['name'] ?? '');
@@ -5320,6 +5339,276 @@ function notifyCampaignEndWarningsForUser(int $userId): void {
             'show_toast' => true,
             'dedup_key' => 'campaign_end:' . $cid . ':' . $bucket,
             'dedup_window_min' => 720,
+        ]);
+    }
+}
+
+function getInternalActiveUserIds(): array {
+    $conn = getDbConnection();
+    $rows = [];
+    $rs = $conn->query("SELECT id FROM users WHERE is_active = 1 AND (client_id IS NULL OR client_id = 0) AND (vendor_id IS NULL OR vendor_id = 0)");
+    if ($rs) $rows = $rs->fetch_all(MYSQLI_ASSOC) ?: [];
+    $ids = [];
+    foreach ($rows as $r) {
+        $id = (int)($r['id'] ?? 0);
+        if ($id > 0) $ids[] = $id;
+    }
+    return $ids;
+}
+
+function notifyCampaignCreated(int $campaignId, int $actorId = 0): void {
+    $campaignId = (int)$campaignId;
+    if ($campaignId <= 0) return;
+    $conn = getDbConnection();
+    $stmt = $conn->prepare("SELECT c.name, d.code, d.status FROM campaigns c JOIN campaign_details d ON d.campaign_id = c.id WHERE c.id = ? LIMIT 1");
+    if (!$stmt) return;
+    $stmt->bind_param('i', $campaignId);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc() ?: [];
+    $stmt->close();
+
+    $name = trim((string)($row['name'] ?? ''));
+    $code = trim((string)($row['code'] ?? ''));
+    $status = trim((string)($row['status'] ?? ''));
+    $title = 'New campaign created';
+    $msg = ($name !== '' ? $name : ('Campaign #' . $campaignId));
+    if ($code !== '') $msg .= ' · ' . $code;
+    if ($status !== '') $msg .= ' · Status: ' . $status;
+    $link = '../campaigns/view?id=' . $campaignId;
+
+    foreach (getInternalActiveUserIds() as $to) {
+        if ($to <= 0 || ($actorId > 0 && $to === (int)$actorId)) continue;
+        createNotificationSmart($to, 'campaign.created', $title, $msg, $link, [
+            'importance' => 'high',
+            'show_toast' => true,
+            'dedup_key' => 'camp_created:' . $campaignId,
+            'dedup_window_min' => 120,
+        ]);
+    }
+}
+
+function notifyCampaignUpdated(int $campaignId, int $actorId = 0, array $meta = []): void {
+    $campaignId = (int)$campaignId;
+    if ($campaignId <= 0) return;
+    $conn = getDbConnection();
+    $stmt = $conn->prepare("SELECT c.name, d.code, d.status FROM campaigns c JOIN campaign_details d ON d.campaign_id = c.id WHERE c.id = ? LIMIT 1");
+    if (!$stmt) return;
+    $stmt->bind_param('i', $campaignId);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc() ?: [];
+    $stmt->close();
+
+    $name = trim((string)($row['name'] ?? ''));
+    $code = trim((string)($row['code'] ?? ''));
+    $status = trim((string)($row['status'] ?? ''));
+    $title = 'Campaign updated';
+    $msg = ($name !== '' ? $name : ('Campaign #' . $campaignId));
+    if ($code !== '') $msg .= ' · ' . $code;
+    if ($status !== '') $msg .= ' · Status: ' . $status;
+    if (!empty($meta['by'])) $msg .= ' · By: ' . (string)$meta['by'];
+    $link = '../campaigns/view?id=' . $campaignId;
+
+    foreach (getInternalActiveUserIds() as $to) {
+        if ($to <= 0 || ($actorId > 0 && $to === (int)$actorId)) continue;
+        createNotificationSmart($to, 'campaign.updated', $title, $msg, $link, [
+            'importance' => 'high',
+            'show_toast' => true,
+            'dedup_key' => 'camp_updated:' . $campaignId,
+            'dedup_window_min' => 10,
+        ]);
+    }
+}
+
+function notifyCampaignPacingRiskForUser(int $userId): void {
+    $userId = (int)$userId;
+    if ($userId <= 0) return;
+    $campaignIds = getUserAssignedCampaignIds($userId, ['operations_campaign_assignments','qa_campaign_assignments','campaign_user_assignments']);
+    if (empty($campaignIds)) return;
+
+    $conn = getDbConnection();
+    $in = implode(',', array_fill(0, count($campaignIds), '?'));
+    $types = str_repeat('i', count($campaignIds));
+    $stmt = $conn->prepare("
+        SELECT c.id, c.name, d.status, d.start_date, d.end_date, d.total_leads, d.pacing_type, d.pacing_count
+        FROM campaigns c
+        JOIN campaign_details d ON d.campaign_id = c.id
+        WHERE c.id IN ($in)
+    ");
+    if (!$stmt) return;
+    $stmt->bind_param($types, ...$campaignIds);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+    $stmt->close();
+
+    $today = date('Y-m-d');
+    foreach ($rows as $r) {
+        $cid = (int)($r['id'] ?? 0);
+        if ($cid <= 0) continue;
+        $status = (string)($r['status'] ?? '');
+        if (!in_array($status, ['Active','Live'], true)) continue;
+
+        $start = (string)($r['start_date'] ?? '');
+        if ($start === '' || strtotime($start) === false) continue;
+        if (strtotime($start) > strtotime($today)) continue;
+
+        $end = (string)($r['end_date'] ?? '');
+        if ($end !== '' && strtotime($end) !== false && strtotime($end) < strtotime($today)) continue;
+
+        $totalLeads = (int)($r['total_leads'] ?? 0);
+        $pacingType = trim((string)($r['pacing_type'] ?? ''));
+        $pacingCount = (int)($r['pacing_count'] ?? 0);
+
+        $daysElapsed = (int)floor((strtotime($today) - strtotime($start)) / 86400) + 1;
+        if ($daysElapsed < 1) $daysElapsed = 1;
+
+        $expected = 0;
+        if ($pacingCount > 0 && $pacingType !== '') {
+            if ($pacingType === 'Daily') $expected = $pacingCount * $daysElapsed;
+            elseif ($pacingType === 'Weekly') $expected = $pacingCount * (int)max(1, ceil($daysElapsed / 7));
+            elseif ($pacingType === 'Monthly') $expected = $pacingCount * (int)max(1, ceil($daysElapsed / 30));
+        } elseif ($totalLeads > 0 && $end !== '' && strtotime($end) !== false) {
+            $totalDays = (int)floor((strtotime($end) - strtotime($start)) / 86400) + 1;
+            if ($totalDays < 1) $totalDays = 1;
+            $expected = (int)ceil($totalLeads * min(1, max(0, $daysElapsed / $totalDays)));
+        }
+        if ($expected <= 0) continue;
+        if ($totalLeads > 0) $expected = min($expected, $totalLeads);
+
+        $stmt2 = $conn->prepare("SELECT COUNT(*) AS cnt FROM leads WHERE campaign_id = ? AND client_delivery_status = 'Delivered'");
+        if (!$stmt2) continue;
+        $stmt2->bind_param('i', $cid);
+        $stmt2->execute();
+        $delivered = (int)(($stmt2->get_result()->fetch_assoc() ?: [])['cnt'] ?? 0);
+        $stmt2->close();
+
+        $threshold = (int)floor($expected * 0.8);
+        if ($delivered >= $threshold) continue;
+
+        $campName = (string)($r['name'] ?? '');
+        $title = 'Low delivery pacing';
+        $msg = ($campName !== '' ? $campName : ('Campaign #' . $cid)) . ' · Delivered: ' . $delivered . ' · Expected: ' . $expected;
+        $link = '../campaigns/view?id=' . $cid;
+        createNotificationSmart($userId, 'campaign.pacing_risk', $title, $msg, $link, [
+            'importance' => 'high',
+            'show_toast' => true,
+            'dedup_key' => 'pacing:' . $cid . ':' . $today,
+            'dedup_window_min' => 1440,
+        ]);
+    }
+}
+
+function notifyLeadUpdated(int $leadDbId, int $actorId = 0, array $changedFields = []): void {
+    $leadDbId = (int)$leadDbId;
+    if ($leadDbId <= 0) return;
+    $lead = getLeadById($leadDbId);
+    if (!$lead) return;
+    $campaignId = (int)($lead['campaign_id'] ?? 0);
+
+    $recipients = [];
+    if ($campaignId > 0) {
+        foreach (getCampaignAssignedUserIds($campaignId, ['operations_campaign_assignments','qa_campaign_assignments','campaign_user_assignments']) as $uid) {
+            if ((int)$uid > 0) $recipients[(int)$uid] = true;
+        }
+    }
+    $agentId = (int)($lead['agent_id'] ?? 0);
+    if ($agentId > 0) $recipients[$agentId] = true;
+    $assignedTo = (int)($lead['assigned_to_user'] ?? 0);
+    if ($assignedTo > 0) $recipients[$assignedTo] = true;
+    $createdBy = (int)($lead['created_by'] ?? 0);
+    if ($createdBy > 0) $recipients[$createdBy] = true;
+    if ($actorId > 0) unset($recipients[(int)$actorId]);
+    if (empty($recipients)) return;
+
+    $leadLabel = (string)($lead['lead_id'] ?? ('#' . (string)$leadDbId));
+    $campName = (string)($lead['campaign_name'] ?? '');
+    $title = 'Lead updated';
+    $msg = $leadLabel . ($campName !== '' ? (' · ' . $campName) : '');
+    if (!empty($changedFields)) {
+        $safe = array_slice(array_values(array_filter(array_map('strval', $changedFields))), 0, 6);
+        if (!empty($safe)) $msg .= ' · Fields: ' . implode(', ', $safe);
+    }
+    $link = '../leads/lead-details.php?id=' . $leadDbId;
+
+    foreach (array_keys($recipients) as $uid) {
+        createNotificationSmart((int)$uid, 'lead.updated', $title, $msg, $link, [
+            'importance' => 'normal',
+            'show_toast' => false,
+            'dedup_key' => 'lead_updated:' . $leadDbId . ':' . sha1(implode('|', $changedFields)),
+            'dedup_window_min' => 2,
+        ]);
+    }
+}
+
+function notifySalesFollowupRemindersForUser(int $userId): void {
+    $userId = (int)$userId;
+    if ($userId <= 0) return;
+    $isAdminFn = function_exists('isAdmin') && isAdmin();
+    $isSalesDirFn = function_exists('isSalesDirector') && isSalesDirector();
+    $isSalesMgrFn = function_exists('isSalesManager') && isSalesManager();
+    $isSdrFn = function_exists('isSDR') && isSDR();
+    if (!($isAdminFn || $isSalesDirFn || $isSalesMgrFn || $isSdrFn)) return;
+
+    $conn = getDbConnection();
+    $where = [];
+    $params = [];
+    $types = '';
+
+    if ($isAdminFn || $isSalesDirFn) {
+        $where[] = "1=1";
+    } elseif ($isSalesMgrFn) {
+        $where[] = "(sl.owner_id = ? OR sl.owner_id IN (SELECT sdr_user_id FROM sales_manager_sdr_map WHERE manager_user_id = ?))";
+        $types .= 'ii';
+        $params[] = $userId;
+        $params[] = $userId;
+    } else {
+        $where[] = "sl.owner_id = ?";
+        $types .= 'i';
+        $params[] = $userId;
+    }
+
+    $where[] = "sl.next_follow_up_at IS NOT NULL AND sl.next_follow_up_at <> ''";
+    $where[] = "sl.status NOT IN ('Closed Won','Closed Lost')";
+
+    $sql = "
+        SELECT sl.id, sl.company_name, sl.next_follow_up_at
+        FROM sales_leads sl
+        WHERE " . implode(' AND ', $where) . "
+        ORDER BY sl.next_follow_up_at ASC
+        LIMIT 100
+    ";
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) return;
+    if ($types !== '') $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+    $stmt->close();
+
+    $now = time();
+    foreach ($rows as $r) {
+        $sid = (int)($r['id'] ?? 0);
+        $nfa = (string)($r['next_follow_up_at'] ?? '');
+        if ($sid <= 0 || $nfa === '' || strtotime($nfa) === false) continue;
+        $ts = strtotime($nfa);
+        $minLeft = (int)floor(($ts - $now) / 60);
+
+        $bucket = null;
+        if ($minLeft <= 60 && $minLeft >= 0) $bucket = 'h1';
+        elseif ($minLeft <= 360 && $minLeft > 60) $bucket = 'h6';
+        elseif ($minLeft <= 1440 && $minLeft > 360) $bucket = 'd1';
+        elseif ($minLeft < 0 && $minLeft >= -120) $bucket = 'overdue';
+        if ($bucket === null) continue;
+
+        $company = trim((string)($r['company_name'] ?? ''));
+        $title = $bucket === 'overdue' ? 'Follow-up overdue' : 'Follow-up reminder';
+        $when = date('d M Y, H:i', $ts);
+        $msg = ($company !== '' ? $company : ('Prospect #' . $sid)) . ' · ' . $when;
+        $link = '../sales/lead-view.php?id=' . $sid;
+        $dedupKey = 'sfup:' . $sid . ':' . $bucket . ':' . sha1($nfa);
+        createNotificationSmart($userId, 'sales.followup_reminder', $title, $msg, $link, [
+            'importance' => 'high',
+            'show_toast' => true,
+            'dedup_key' => $dedupKey,
+            'dedup_window_min' => 180,
         ]);
     }
 }
@@ -6438,6 +6727,9 @@ function createCampaignWithDetails(array $basic, array $criteria, array $customF
     $uploadedBy = $createdBy ?: ($ownerId ?: 0);
     saveCampaignSetupFilesToDb($campaignId, $filePaths, $uploadedBy);
 
+    if (function_exists('notifyCampaignCreated')) {
+        notifyCampaignCreated($campaignId, (int)($createdBy ?: 0));
+    }
     return $campaignId;
 }
 
@@ -6564,6 +6856,9 @@ function updateCampaignDetails(int $campaignId, array $basic, array $criteria, a
     $uploadedBy = $updatedBy ?: 0;
     saveCampaignSetupFilesToDb($campaignId, $filePaths, $uploadedBy);
 
+    if (function_exists('notifyCampaignUpdated')) {
+        notifyCampaignUpdated($campaignId, (int)($updatedBy ?: 0), []);
+    }
     return true;
 }
 

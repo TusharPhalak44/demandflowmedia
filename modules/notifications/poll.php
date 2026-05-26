@@ -26,10 +26,12 @@ if ($userId <= 0) {
     exit;
 }
 
-$last = (int)($_SESSION['campaign_end_check_ts'] ?? 0);
+$last = (int)($_SESSION['notif_scheduler_ts'] ?? 0);
 if ($last <= 0 || (time() - $last) > 900) {
-    $_SESSION['campaign_end_check_ts'] = time();
+    $_SESSION['notif_scheduler_ts'] = time();
     if (function_exists('notifyCampaignEndWarningsForUser')) notifyCampaignEndWarningsForUser($userId);
+    if (function_exists('notifyCampaignPacingRiskForUser')) notifyCampaignPacingRiskForUser($userId);
+    if (function_exists('notifySalesFollowupRemindersForUser')) notifySalesFollowupRemindersForUser($userId);
 }
 
 $sinceId = (int)($_POST['since_id'] ?? 0);

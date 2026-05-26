@@ -79,6 +79,80 @@ document.addEventListener('DOMContentLoaded', function () {
     document.body.appendChild(container);
   }
 
+  let backdrop = document.getElementById('notifToastBackdrop');
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.id = 'notifToastBackdrop';
+    backdrop.className = 'notif-toast-backdrop';
+    backdrop.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(backdrop);
+  }
+
+  function updateBackdrop() {
+    const hasAny = container && container.querySelector('.toast.show');
+    backdrop.classList.toggle('show', !!hasAny);
+  }
+
+  const bellBtn = document.querySelector('[data-notif-bell]');
+  function getBadgeEl() {
+    if (!bellBtn) return null;
+    return bellBtn.querySelector('[data-notif-badge]');
+  }
+  function getBadgeCount() {
+    const el = getBadgeEl();
+    const n = el ? parseInt(el.textContent || '0', 10) : 0;
+    return isNaN(n) ? 0 : n;
+  }
+  function setBadgeCount(n) {
+    if (!bellBtn) return;
+    n = Math.max(0, Math.min(99, parseInt(String(n), 10) || 0));
+    let el = getBadgeEl();
+    if (n <= 0) {
+      if (el) el.remove();
+      return;
+    }
+    if (!el) {
+      el = document.createElement('span');
+      el.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger';
+      el.setAttribute('data-notif-badge', '');
+      bellBtn.appendChild(el);
+    }
+    el.textContent = String(n);
+  }
+  function bumpBadge(delta) {
+    const cur = getBadgeCount();
+    setBadgeCount(cur + (parseInt(String(delta), 10) || 0));
+  }
+
+  const seenKey = 'notif_toast_seen_v1';
+  function getSeenMap() {
+    try {
+      const raw = localStorage.getItem(seenKey);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (!parsed || typeof parsed !== 'object') return {};
+      return parsed;
+    } catch (e) {
+      return {};
+    }
+  }
+  function setSeenMap(map) {
+    try { localStorage.setItem(seenKey, JSON.stringify(map)); } catch (e) {}
+  }
+  function hasSeenToast(id) {
+    const m = getSeenMap();
+    return !!m[String(id)];
+  }
+  function markSeenToast(id) {
+    const m = getSeenMap();
+    m[String(id)] = Date.now();
+    const keys = Object.keys(m);
+    if (keys.length > 500) {
+      keys.sort((a, b) => (m[a] || 0) - (m[b] || 0));
+      for (let i = 0; i < keys.length - 400; i++) delete m[keys[i]];
+    }
+    setSeenMap(m);
+  }
+
   function inferIcon(link, title) {
     const l = String(link || '').toLowerCase();
     const t = String(title || '').toLowerCase();
@@ -99,11 +173,18 @@ document.addEventListener('DOMContentLoaded', function () {
     }).catch(function(){});
   }
 
+  function markReadAndUpdate(id) {
+    if (!id) return;
+    markRead(id);
+    bumpBadge(-1);
+  }
+
   function renderToast(row) {
     const id = parseInt(row.id || 0, 10);
     if (!id || shown.has(id)) return;
     shown.add(id);
     if (id > sinceId) sinceId = id;
+    if (hasSeenToast(id)) return;
     const title = String(row.title || '');
     const body = String(row.body || '');
     const link = String(row.link_url || '');
@@ -115,6 +196,7 @@ document.addEventListener('DOMContentLoaded', function () {
     el.setAttribute('role', 'alert');
     el.setAttribute('aria-live', 'assertive');
     el.setAttribute('aria-atomic', 'true');
+    el.setAttribute('data-notif-id', String(id));
     el.innerHTML =
       '<div class="toast-header">' +
         '<i class="bi me-2"></i>' +
@@ -143,8 +225,20 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     container.appendChild(el);
     const toast = new bootstrap.Toast(el, { autohide: false });
+    el.addEventListener('shown.bs.toast', updateBackdrop);
+    el.addEventListener('hidden.bs.toast', function () {
+      const nid = parseInt(el.getAttribute('data-notif-id') || '0', 10);
+      if (nid && !el.getAttribute('data-notif-marked')) {
+        el.setAttribute('data-notif-marked', '1');
+        markReadAndUpdate(nid);
+      }
+      el.remove();
+      updateBackdrop();
+    });
     toast.show();
-    markRead(id);
+    markSeenToast(id);
+    updateBackdrop();
+    bumpBadge(1);
   }
 
   document.querySelectorAll('[data-notif-toast]').forEach(function(el) {
@@ -152,10 +246,36 @@ document.addEventListener('DOMContentLoaded', function () {
     if (id) {
       shown.add(id);
       if (id > sinceId) sinceId = id;
-      markRead(id);
+      markSeenToast(id);
     }
     const toast = new bootstrap.Toast(el, { autohide: false });
+    el.addEventListener('shown.bs.toast', updateBackdrop);
+    el.addEventListener('hidden.bs.toast', function () {
+      const nid = parseInt(el.getAttribute('data-notif-id') || '0', 10);
+      if (nid && !el.getAttribute('data-notif-marked')) {
+        el.setAttribute('data-notif-marked', '1');
+        markReadAndUpdate(nid);
+      }
+      el.remove();
+      updateBackdrop();
+    });
     toast.show();
+  });
+  updateBackdrop();
+
+  container.addEventListener('click', function (e) {
+    const a = e.target && e.target.closest ? e.target.closest('a.btn') : null;
+    if (!a) return;
+    const t = a.closest('.toast');
+    if (!t) return;
+    const nid = parseInt(t.getAttribute('data-notif-id') || t.getAttribute('data-notif-id') || '0', 10);
+    if (!nid || t.getAttribute('data-notif-marked')) return;
+    t.setAttribute('data-notif-marked', '1');
+    markReadAndUpdate(nid);
+    try {
+      const inst = bootstrap.Toast.getOrCreateInstance(t);
+      inst.hide();
+    } catch (err) {}
   });
 
   function poll() {

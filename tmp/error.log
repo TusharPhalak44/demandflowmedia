@@ -18,3 +18,12 @@ Stack trace:
 [18-May-2026 15:03:22 Europe/Berlin] Unauthorized access attempt by user 13 for permission: admin.call_history on /leads/modules/admin/call-history
 [18-May-2026 16:11:59 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/lead-details?id=1076
 [18-May-2026 16:18:31 Europe/Berlin] PHP Fatal error:  Maximum execution time of 120 seconds exceeded in C:\xampp\htdocs\leads\includes\functions.php on line 2487
+[26-May-2026 15:09:42 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/lead-details?id=1353
+[26-May-2026 15:11:51 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/lead-details?id=1353
+[26-May-2026 15:11:54 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/lead-details?id=1076
+[26-May-2026 15:12:35 Europe/Berlin] Unauthorized access attempt by user 13 for permission: users.profile on /leads/modules/users/profile
+[26-May-2026 15:13:03 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/lead-details?id=1353
+[26-May-2026 15:14:18 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/lead-details?id=1353
+[26-May-2026 15:14:32 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/lead-details?id=1353
+[26-May-2026 15:37:34 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/lead-details?id=1353
+[26-May-2026 15:41:36 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.manage on /leads/modules/leads/vendors

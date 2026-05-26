@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
-$allowedRoles = ['admin', 'director', 'manager_director', 'operations_director', 'operations_manager', 'operations_agent', 'qa', 'qa_agent', 'qa_manager', 'qa_director', 'agent', 'form_filler', 'email_marketing_executive', 'email_marketing_agent', 'email_marketing_manager', 'email_marketing_director'];
+$allowedRoles = ['admin', 'director', 'manager_director', 'operations_director', 'operations_manager', 'qa', 'qa_agent', 'qa_manager', 'qa_director', 'agent', 'form_filler', 'email_marketing_executive', 'email_marketing_agent', 'email_marketing_manager', 'email_marketing_director'];
 requireRole($allowedRoles);
 ensureDatabaseSchema();
 

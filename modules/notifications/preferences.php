@@ -10,11 +10,17 @@ $userId = (int)($user['id'] ?? 0);
 $conn = getDbConnection();
 
 $eventTypes = [
+    'campaign.created' => 'New campaign created',
     'campaign.assigned' => 'Campaign allocated',
     'campaign.end_warning' => 'Campaign end date warning',
+    'campaign.pacing_risk' => 'Low leads pacing alert',
+    'campaign.updated' => 'Campaign updated',
     'lead.created' => 'New lead uploaded',
+    'lead.updated' => 'Lead updated',
     'lead.status_updated' => 'Lead status updated',
     'chat.message' => 'New chat message',
+    'chat.group_message' => 'New group message',
+    'sales.followup_reminder' => 'Sales follow-up reminder',
     'invoice.created' => 'Invoice created',
     'invoice.status_changed' => 'Invoice status updated',
     'invoice.paid' => 'Invoice marked paid',
@@ -89,6 +95,11 @@ include __DIR__ . '/../../includes/layout/app_start.php';
 
     <form method="post">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+        <div class="alert alert-info border-0 shadow-sm">
+            <div class="fw-semibold mb-1">How it works</div>
+            <div class="small">Enabled events create notifications for you. Instant means it appears immediately in the bell menu. Digest means it is queued and later grouped into a single “digest” notification when an admin runs the digest generator.</div>
+            <div class="small mt-1">Popup shows the centered notification popup and blurs the background so it is clearly visible.</div>
+        </div>
         <div class="card border-0 shadow-sm">
             <div class="card-header fw-semibold">Events</div>
             <div class="table-responsive">
@@ -98,7 +109,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                             <th>Event</th>
                             <th style="width:110px;" class="text-center">Enabled</th>
                             <th style="width:160px;">Delivery</th>
-                            <th style="width:110px;" class="text-center">Popup</th>
+                            <th style="width:140px;" class="text-center">Popup (Toast)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -108,7 +119,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                                 $enabled = $row ? ((int)($row['is_enabled'] ?? 1) === 1) : true;
                                 $mode = $row ? (string)($row['delivery_mode'] ?? 'instant') : 'instant';
                                 if (!in_array($mode, ['instant','digest'], true)) $mode = 'instant';
-                                $toast = $row ? ((int)($row['show_toast'] ?? 0) === 1) : ($type === 'campaign.end_warning');
+                                $toast = $row ? ((int)($row['show_toast'] ?? 0) === 1) : in_array($type, ['campaign.end_warning','campaign.pacing_risk','sales.followup_reminder','chat.message','chat.group_message','lead.created','lead.updated'], true);
                             ?>
                             <tr>
                                 <td class="fw-semibold"><?php echo htmlspecialchars($label); ?><div class="text-muted small"><?php echo htmlspecialchars($type); ?></div></td>

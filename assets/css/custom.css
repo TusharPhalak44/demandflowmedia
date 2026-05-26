@@ -41,6 +41,25 @@ body {
   padding-top: 4rem;
 }
 
+.notif-toast-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1075;
+  display: none;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+  background: rgba(13, 110, 253, 0.16);
+}
+
+[data-bs-theme="dark"] .notif-toast-backdrop {
+  background: rgba(13, 110, 253, 0.12);
+}
+
+.notif-toast-backdrop.show {
+  display: block;
+  pointer-events: auto;
+}
+
 /* Navbar styling */
 .navbar {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);

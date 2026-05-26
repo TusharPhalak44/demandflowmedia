@@ -16,10 +16,12 @@
     }
     $csrfToken = (string)($_SESSION['csrf_token'] ?? '');
     if ($uid > 0) {
-      $last = (int)($_SESSION['campaign_end_check_ts'] ?? 0);
+      $last = (int)($_SESSION['notif_scheduler_ts'] ?? 0);
       if ($last <= 0 || (time() - $last) > 900) {
-        $_SESSION['campaign_end_check_ts'] = time();
-        notifyCampaignEndWarningsForUser($uid);
+        $_SESSION['notif_scheduler_ts'] = time();
+        if (function_exists('notifyCampaignEndWarningsForUser')) notifyCampaignEndWarningsForUser($uid);
+        if (function_exists('notifyCampaignPacingRiskForUser')) notifyCampaignPacingRiskForUser($uid);
+        if (function_exists('notifySalesFollowupRemindersForUser')) notifySalesFollowupRemindersForUser($uid);
       }
     }
     $unread = $uid > 0 ? getUnreadNotificationCount($uid) : 0;
@@ -38,10 +40,10 @@
     <i class="bi bi-telephone-outbound"></i>
   </button>
   <div class="dropdown">
-    <button class="btn btn-light border btn-sm position-relative" data-bs-toggle="dropdown" aria-expanded="false">
+    <button class="btn btn-light border btn-sm position-relative" data-bs-toggle="dropdown" aria-expanded="false" data-notif-bell>
       <i class="bi bi-bell"></i>
       <?php if ($unread > 0): ?>
-        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" data-notif-badge>
           <?php echo (int)min(99, $unread); ?>
         </span>
       <?php endif; ?>
@@ -58,6 +60,7 @@
           <?php foreach ($latest as $n): ?>
             <?php
               $id = (int)($n['id'] ?? 0);
+              $type = (string)($n['type'] ?? '');
               $title = (string)($n['title'] ?? '');
               $body = (string)($n['body'] ?? '');
               $link = (string)($n['link_url'] ?? '');
@@ -66,11 +69,23 @@
               $when = $createdAt ? date('d M, H:i', strtotime($createdAt)) : '';
               $hrefBase = $layoutModulesBase . '/notifications/mark-read?id=' . $id . '&csrf_token=' . urlencode($csrfToken);
               $href = $link !== '' ? ($hrefBase . '&to=' . urlencode($link)) : $hrefBase;
+              $tLower = strtolower($type);
+              $lLower = strtolower($link);
+              $icon = 'bi-bell';
+              $iconCls = 'text-secondary';
+              if (str_contains($tLower, 'chat') || str_contains($lLower, 'chat')) { $icon = 'bi-chat-dots-fill'; $iconCls = 'text-primary'; }
+              elseif (str_contains($tLower, 'lead') || str_contains($lLower, 'lead')) { $icon = 'bi-person-lines-fill'; $iconCls = 'text-info'; }
+              elseif (str_contains($tLower, 'campaign') || str_contains($lLower, 'campaign')) { $icon = 'bi-megaphone'; $iconCls = 'text-primary'; }
+              elseif (str_contains($tLower, 'invoice') || str_contains($lLower, 'invoice') || str_contains($lLower, 'revenue')) { $icon = 'bi-receipt'; $iconCls = 'text-success'; }
             ?>
             <a class="list-group-item list-group-item-action <?php echo $isRead ? '' : 'bg-light'; ?>" href="<?php echo htmlspecialchars($href); ?>">
               <div class="d-flex justify-content-between gap-3">
                 <div style="min-width:0;">
-                  <div class="fw-semibold small text-truncate"><?php echo htmlspecialchars($title); ?></div>
+                  <div class="fw-semibold small text-truncate d-flex align-items-center gap-2">
+                    <?php if (!$isRead): ?><span class="badge rounded-pill bg-primary" style="width:8px;height:8px;padding:0;"></span><?php endif; ?>
+                    <i class="bi <?php echo htmlspecialchars($icon); ?> <?php echo htmlspecialchars($iconCls); ?>"></i>
+                    <span class="text-truncate"><?php echo htmlspecialchars($title); ?></span>
+                  </div>
                   <?php if ($body !== ''): ?>
                     <div class="text-muted small" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;"><?php echo htmlspecialchars($body); ?></div>
                   <?php endif; ?>
