@@ -219,10 +219,7 @@ $addRow = function(array &$rows, string $label, float $amount, bool $always = fa
                         <div class="text-muted small">Paid</div>
                         <div class="fw-semibold"><?php echo number_format((float)($attendance['paid_days'] ?? 0), 1); ?></div>
                     </div>
-                    <div class="col-3">
-                        <div class="text-muted small">Factor</div>
-                        <div class="fw-semibold font-monospace"><?php echo number_format((float)($attendance['attendance_factor'] ?? 0), 4); ?></div>
-                    </div>
+                    
                 </div>
                 <hr class="my-3">
                 <div class="d-flex justify-content-between align-items-center">

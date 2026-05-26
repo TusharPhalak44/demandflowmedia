@@ -169,7 +169,8 @@ $companyWebsite = $ensureProtocol($companyWebsite);
 
 if ($edit) {
     $postTo = $_GET['post_to'] ?? 'my-leads.php';
-    $standalone = !empty($_GET['standalone']);
+    $embed = !empty($_GET['embed']);
+    $standalone = $embed ? false : true;
     $companySizeOptions = ['Myself Only','2-10','11-50','51-200','201-500','501-1,000','1,001-5,000','5,001-10,000','10,001+'];
     $countryOptions = ['United States','United Kingdom','Canada','Australia','Germany','France','India','Other'];
     $timelineOptions = ['0-3 Months','3-6 Months','6-9 Months','9-12 Months'];

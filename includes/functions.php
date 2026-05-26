@@ -1487,6 +1487,7 @@ function getPayslip(int $userId, int $year, int $month): ?array {
  * Upsert monthly productivity target for an agent
  */
 function setAgentMonthlyTarget($agentId, $year, $month, $dailyTarget, $assignedBy) {
+    if (!productivityTargetsTableExists()) return false;
     $conn = getDbConnection();
     $workingDays = getWorkingDays($year, $month);
     $monthlyTarget = (int)$dailyTarget * (int)$workingDays;
@@ -1505,6 +1506,7 @@ function setAgentMonthlyTarget($agentId, $year, $month, $dailyTarget, $assignedB
  * Get monthly target for an agent
  */
 function getAgentMonthlyTarget($agentId, $year, $month) {
+    if (!productivityTargetsTableExists()) return null;
     $conn = getDbConnection();
     $stmt = $conn->prepare("SELECT * FROM productivity_targets WHERE agent_id = ? AND year = ? AND month = ?");
     if (!$stmt) { return null; }
@@ -1518,6 +1520,7 @@ function getAgentMonthlyTarget($agentId, $year, $month) {
  * Get all targets for a month (joined with agent names)
  */
 function getMonthlyTargets($year, $month) {
+    if (!productivityTargetsTableExists()) return [];
     $conn = getDbConnection();
     $stmt = $conn->prepare("SELECT pt.*, u.full_name AS agent_name FROM productivity_targets pt JOIN users u ON pt.agent_id = u.id WHERE pt.year = ? AND pt.month = ? ORDER BY u.full_name");
     if (!$stmt) { return []; }
@@ -1606,6 +1609,15 @@ function productivitySnapshotsTableExists(): bool {
         $rs2 = $conn->query("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'productivity_month_snapshots' LIMIT 1");
         $exists = (bool)($rs2 && $rs2->fetch_assoc());
     }
+    return $exists;
+}
+
+function productivityTargetsTableExists(): bool {
+    static $exists = null;
+    if ($exists !== null) return $exists;
+    $conn = getDbConnection();
+    $rs = $conn->query("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'productivity_targets' LIMIT 1");
+    $exists = (bool)($rs && $rs->fetch_assoc());
     return $exists;
 }
 
@@ -1790,7 +1802,7 @@ function saveProductivitySnapshot(int $agentId, int $year, int $month, array $st
 }
 
 function lockProductivityMonth(int $year, int $month, int $lockedBy): bool {
-    ensureDatabaseSchema();
+    if (!productivityLocksTableExists() || !productivitySnapshotsTableExists() || !productivityTargetsTableExists()) return false;
     ensureUsFederalHolidaysForYear($year - 1);
     ensureUsFederalHolidaysForYear($year);
     ensureUsFederalHolidaysForYear($year + 1);
@@ -4010,23 +4022,6 @@ function ensureDatabaseSchema(): void {
     ensureAppSettingsSchema();
     ensureUserIpAccessSchema();
 
-    // Productivity targets table
-    $conn->query("CREATE TABLE IF NOT EXISTS productivity_targets (
-        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        agent_id INT NOT NULL,
-        year INT NOT NULL,
-        month INT NOT NULL,
-        working_days INT NOT NULL,
-        daily_target INT NOT NULL,
-        monthly_target INT NOT NULL,
-        minimum_target INT NULL,
-        assigned_by INT NOT NULL,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME NULL,
-        UNIQUE KEY uniq_agent_month (agent_id, year, month),
-        INDEX idx_year_month (year, month)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
     $conn->query("CREATE TABLE IF NOT EXISTS holidays (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         country_code VARCHAR(2) NOT NULL,
@@ -4035,60 +4030,6 @@ function ensureDatabaseSchema(): void {
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY uniq_country_date (country_code, holiday_date),
         INDEX idx_date (holiday_date)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-    $conn->query("CREATE TABLE IF NOT EXISTS productivity_month_locks (
-        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        year INT NOT NULL,
-        month INT NOT NULL,
-        locked_by INT NOT NULL,
-        locked_at DATETIME NOT NULL,
-        UNIQUE KEY uniq_year_month (year, month),
-        INDEX idx_locked_at (locked_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-    $conn->query("CREATE TABLE IF NOT EXISTS productivity_month_snapshots (
-        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        agent_id INT NOT NULL,
-        year INT NOT NULL,
-        month INT NOT NULL,
-        daily_target_mql INT NOT NULL,
-        monthly_target_mql INT NOT NULL,
-        working_days INT NOT NULL,
-        days_elapsed INT NOT NULL,
-        period_start DATE NOT NULL,
-        period_end DATE NOT NULL,
-        total_leads INT NOT NULL,
-        total_mql DECIMAL(10,2) NOT NULL,
-        overall_percent DECIMAL(5,1) NOT NULL,
-        days_met_daily INT NOT NULL,
-        met_monthly TINYINT(1) NOT NULL,
-        daily_incentives INT NOT NULL,
-        monthly_incentive INT NOT NULL,
-        total_incentives INT NOT NULL,
-        locked_by INT NOT NULL,
-        locked_at DATETIME NOT NULL,
-        UNIQUE KEY uniq_agent_month (agent_id, year, month),
-        INDEX idx_year_month (year, month)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-    $conn->query("CREATE TABLE IF NOT EXISTS productivity_day_snapshots (
-        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        agent_id INT NOT NULL,
-        year INT NOT NULL,
-        month INT NOT NULL,
-        work_date DATE NOT NULL,
-        counts_json TEXT NOT NULL,
-        total_leads INT NOT NULL,
-        achieved_mql DECIMAL(10,2) NOT NULL,
-        daily_percent DECIMAL(5,1) NOT NULL,
-        met_daily_target TINYINT(1) NOT NULL,
-        base_incentive INT NOT NULL,
-        extra_incentive INT NOT NULL,
-        extra_counts_json TEXT NOT NULL,
-        daily_incentive INT NOT NULL,
-        INDEX idx_agent_month (agent_id, year, month),
-        INDEX idx_work_date (work_date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     $conn->query("CREATE TABLE IF NOT EXISTS hr_attendance_days (

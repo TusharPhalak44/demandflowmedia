@@ -183,7 +183,6 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                                 <td class="text-end"><?php echo $roiX !== null ? number_format((float)$roiX, 2) . 'x' : '<span class="text-muted">—</span>'; ?></td>
                                 <td class="text-end">
                                     <a class="btn btn-sm btn-light border" href="../hr/payslip-view.php?month=<?php echo urlencode($monthStr); ?>&user_id=<?php echo (int)$r['agent_id']; ?>" title="Payslip"><i class="bi bi-receipt"></i></a>
-                                    <a class="btn btn-sm btn-light border" href="../productivity/productivity-admin.php" title="Productivity"><i class="bi bi-bar-chart"></i></a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -194,4 +193,3 @@ include __DIR__ . '/../../includes/layout/app_start.php';
     </div>
 </div>
 <?php include __DIR__ . '/../../includes/layout/app_end.php'; ?>
-

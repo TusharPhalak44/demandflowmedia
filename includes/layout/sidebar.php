@@ -173,23 +173,6 @@
     <?php endif; ?>
   <?php endif; ?>
 
-  <?php if ($isInternal && (isAgent() || isAdmin() || isDirector() || isQA() || $canPerm('productivity.access'))): ?>
-    <?php if ($canPerm('productivity.access')): ?>
-    <?php $prodActive = in_array($layoutPage, ['productivity.php','incentives.php','productivity-admin.php'], true); ?>
-    <a class="sidebar-link sidebar-toggle <?php echo $prodActive ? 'active' : ''; ?>" data-bs-toggle="collapse" href="#navProd" role="button" aria-expanded="<?php echo $prodActive ? 'true' : 'false'; ?>">
-      <span class="sidebar-title"><i class="bi bi-bar-chart"></i><span>Productivity</span></span>
-      <i class="bi bi-chevron-down sidebar-chevron"></i>
-    </a>
-    <div class="collapse sidebar-submenu <?php echo $prodActive ? 'show' : ''; ?>" id="navProd">
-      <a class="sidebar-sublink <?php echo $layoutPage === 'productivity.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/productivity/productivity"><i class="bi bi-graph-up-arrow"></i><span>Overview</span></a>
-      <a class="sidebar-sublink <?php echo $layoutPage === 'incentives.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/productivity/incentives"><i class="bi bi-cash-stack"></i><span>Incentives</span></a>
-      <?php if (isAdmin()): ?>
-        <a class="sidebar-sublink <?php echo $layoutPage === 'productivity-admin.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/productivity/productivity-admin"><i class="bi bi-gear"></i><span>Targets</span></a>
-      <?php endif; ?>
-    </div>
-    <?php endif; ?>
-  <?php endif; ?>
-
   <?php if ($isInternal && (isAgent() || isAdmin() || isDirector() || isQA() || $canPerm('hr.access'))): ?>
     <?php if ($canPerm('hr.access')): ?>
     <?php $hrActive = in_array($layoutPage, ['hr-dashboard.php','attendance.php','payslips.php','attendance-admin.php','shifts.php','salary-setup.php','bonus-loans.php','payroll.php','payslip-view.php','payslip-pdf.php'], true); ?>

@@ -113,13 +113,6 @@ if ($permEnabled) {
                         </a>
                     </li>
                 <?php endif; ?>
-                <?php if ($canPerm('productivity.access')): ?>
-                    <li class="nav-item">
-                        <a class="nav-link <?php echo $currentPage == 'productivity.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($navbarModules); ?>/productivity/productivity.php">
-                            <i class="bi bi-bar-chart"></i> Productivity
-                        </a>
-                    </li>
-                <?php endif; ?>
                 <?php if ($canPerm('campaigns.view') || $canPerm('campaigns.manage')): ?>
                     <li class="nav-item">
                         <a class="nav-link <?php echo $currentPage == 'campaigns-manage.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($navbarModules); ?>/campaigns/campaigns-manage.php">
@@ -211,11 +204,6 @@ if ($permEnabled) {
                             <?php if ($canPerm('admin.settings')): ?>
                                 <li><a class="dropdown-item <?php echo $currentPage == 'reset-password.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($navbarModules); ?>/auth/reset-password.php">
                                     <i class="bi bi-key"></i> Reset Passwords
-                                </a></li>
-                            <?php endif; ?>
-                            <?php if ($canPerm('productivity.access')): ?>
-                                <li><a class="dropdown-item <?php echo $currentPage == 'productivity-admin.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($navbarModules); ?>/productivity/productivity-admin.php">
-                                    <i class="bi bi-shield-lock"></i> Targets & Payroll
                                 </a></li>
                             <?php endif; ?>
                         </ul>

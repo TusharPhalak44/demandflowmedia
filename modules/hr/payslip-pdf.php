@@ -178,28 +178,6 @@ if (file_exists($watermarkLogoPath) && function_exists('imagecreatefrompng') && 
     }
 }
 
-$stampPath = __DIR__ . '/../../assets/images/logos/stamp.png';
-$stampLogo = null;
-if (file_exists($stampPath) && function_exists('imagecreatefrompng') && function_exists('imagejpeg')) {
-    $im = @imagecreatefrompng($stampPath);
-    if ($im) {
-        $w = imagesx($im);
-        $h = imagesy($im);
-        $st = imagecreatetruecolor($w, $h);
-        if ($st) {
-            $white = imagecolorallocate($st, 255, 255, 255);
-            imagefilledrectangle($st, 0, 0, $w, $h, $white);
-            imagecopymerge($st, $im, 0, 0, 0, 0, $w, $h, 55);
-            ob_start();
-            imagejpeg($st, null, 80);
-            $jpeg = (string)ob_get_clean();
-            imagedestroy($st);
-            if ($jpeg !== '' && $w > 0 && $h > 0) $stampLogo = ['jpeg' => $jpeg, 'w' => $w, 'h' => $h];
-        }
-        imagedestroy($im);
-    }
-}
-
 $salaryPr = (float)($earn['salary_prorated'] ?? ($earn['base_prorated'] ?? 0));
 $pt = (float)($ded['professional_tax'] ?? 0);
 $tds = (float)($ded['tds'] ?? ($ded['tax'] ?? 0));
@@ -278,17 +256,6 @@ if ($watermarkLogo && isset($watermarkLogo['w'], $watermarkLogo['h'])) {
     $content .= "q\n{$dw} 0 0 {$dh} {$dx} {$dy} cm\n/Im1 Do\nQ\n";
 }
 $content .= "q\n";
-if ($stampLogo && isset($stampLogo['w'], $stampLogo['h'])) {
-    $lw = (float)$stampLogo['w'];
-    $lh = (float)$stampLogo['h'];
-    $targetW = 110.0;
-    $scale = $targetW / max(1.0, $lw);
-    $dw = $lw * $scale;
-    $dh = $lh * $scale;
-    $dx = 555.0 - $dw;
-    $dy = 48.0;
-    $content .= "q\n{$dw} 0 0 {$dh} {$dx} {$dy} cm\n/Im3 Do\nQ\n";
-}
 $content .= $setLineWidth(0.7);
 $content .= $setStroke(0.85, 0.87, 0.89);
 $content .= $setFill(0, 0, 0);
@@ -416,7 +383,7 @@ $attText1 = 'Working: ' . (string)($attendance['working_days'] ?? 0) .
 $attText2 = 'PL: ' . (string)($attendance['paid_leave_days'] ?? 0) .
     '   UL: ' . (string)($attendance['unpaid_leave_days'] ?? 0) .
     '   Paid: ' . (string)($attendance['paid_days'] ?? 0) .
-    '   Factor: ' . number_format((float)($attendance['attendance_factor'] ?? 0), 4);
+ 
 $attText1 = $fitText($attText1, $WIDTH - ($PAD_X * 2.0), 9);
 $attText2 = $fitText($attText2, $WIDTH - ($PAD_X * 2.0), 9);
 $segH = $attRowH / 2.0;
@@ -619,18 +586,12 @@ if ($headerLogo && isset($headerLogo['jpeg'], $headerLogo['w'], $headerLogo['h']
     $imgData = (string)$headerLogo['jpeg'];
     $headerObj = $addObj("<< /Type /XObject /Subtype /Image /Width " . (int)$headerLogo['w'] . " /Height " . (int)$headerLogo['h'] . " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " . strlen($imgData) . " >>\nstream\n" . $imgData . "\nendstream");
 }
-$stampObj = 0;
-if ($stampLogo && isset($stampLogo['jpeg'], $stampLogo['w'], $stampLogo['h'])) {
-    $imgData = (string)$stampLogo['jpeg'];
-    $stampObj = $addObj("<< /Type /XObject /Subtype /Image /Width " . (int)$stampLogo['w'] . " /Height " . (int)$stampLogo['h'] . " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " . strlen($imgData) . " >>\nstream\n" . $imgData . "\nendstream");
-}
 $contentStream = "<< /Length " . strlen($content) . " >>\nstream\n" . $content . "endstream";
 $contentObj = $addObj($contentStream);
 $pagesObj = $addObj("<< /Type /Pages /Kids [] /Count 0 >>");
 $xobjParts = [];
 if ($wmObj > 0) $xobjParts[] = "/Im1 {$wmObj} 0 R";
 if ($headerObj > 0) $xobjParts[] = "/Im2 {$headerObj} 0 R";
-if ($stampObj > 0) $xobjParts[] = "/Im3 {$stampObj} 0 R";
 $xobj = !empty($xobjParts) ? " /XObject << " . implode(' ', $xobjParts) . " >>" : "";
 $pageObj = $addObj("<< /Type /Page /Parent {$pagesObj} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 {$fontObj} 0 R /F2 {$fontBoldObj} 0 R >>{$xobj} >> /Contents {$contentObj} 0 R >>");
 $objects[$pagesObj - 1] = "<< /Type /Pages /Kids [{$pageObj} 0 R] /Count 1 >>";

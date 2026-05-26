@@ -92,7 +92,6 @@ $basePermissions = [
     'vendors.access' => 'Vendors – Access',
     'hr.access' => 'HR – Access',
     'revenue.access' => 'Revenue – Access',
-    'productivity.access' => 'Productivity – Access',
 
     'admin.settings' => 'Admin – Settings',
     'admin.analytics' => 'Admin – Analytics',
@@ -107,7 +106,7 @@ $basePermissionGroups = [
     'QA' => ['qa.access','qa.assignments'],
     'Users' => ['users.profile','users.internal.manage','clients.users.manage','vendors.users.manage'],
     'Admin' => ['admin.settings','admin.analytics','admin.data_reset'],
-    'Other' => ['notifications.access','chat.access','sales.access','clients.access','vendors.access','hr.access','revenue.access','productivity.access'],
+    'Other' => ['notifications.access','chat.access','sales.access','clients.access','vendors.access','hr.access','revenue.access'],
 ];
 
 $customPermissionsRaw = trim((string)(getAppSetting('access.custom_permissions', '') ?? ''));
@@ -155,8 +154,8 @@ $roleTemplates = [
 
 $default = [
     'admin' => ['*'],
-    'director' => ['dashboard.admin','notifications.access','chat.access','admin.settings','admin.analytics','users.internal.manage','clients.users.manage','vendors.users.manage','leads.manage','leads.export','campaigns.manage','campaigns.export','forms.manage','qa.access','qa.assignments','sales.access','clients.access','vendors.access','revenue.access','productivity.access','hr.access'],
-    'manager_director' => ['dashboard.admin','notifications.access','chat.access','admin.analytics','users.internal.manage','clients.users.manage','vendors.users.manage','leads.manage','leads.export','campaigns.manage','campaigns.export','forms.manage','qa.access','qa.assignments','sales.access','clients.access','vendors.access','revenue.access','productivity.access','hr.access'],
+    'director' => ['dashboard.admin','notifications.access','chat.access','admin.settings','admin.analytics','users.internal.manage','clients.users.manage','vendors.users.manage','leads.manage','leads.export','campaigns.manage','campaigns.export','forms.manage','qa.access','qa.assignments','sales.access','clients.access','vendors.access','revenue.access','hr.access'],
+    'manager_director' => ['dashboard.admin','notifications.access','chat.access','admin.analytics','users.internal.manage','clients.users.manage','vendors.users.manage','leads.manage','leads.export','campaigns.manage','campaigns.export','forms.manage','qa.access','qa.assignments','sales.access','clients.access','vendors.access','revenue.access','hr.access'],
     'operations_director' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.export','leads.entry','leads.bulk_upload','leads.tracking','campaigns.view','campaigns.export','clients.access','vendors.access'],
     'operations_manager' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.export','leads.entry','leads.bulk_upload','leads.tracking','campaigns.view','campaigns.export','clients.access','vendors.access'],
     'operations_agent' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.entry','leads.my','campaigns.view'],

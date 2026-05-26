@@ -175,8 +175,6 @@ function fmtMinutesHrDash(int $m): string {
                                             <div class="fw-semibold"><i class="bi bi-cash-stack me-1"></i> Quick Links</div>
                                         </div>
                                         <div class="d-flex flex-wrap gap-2">
-                                            <a class="btn btn-outline-primary btn-sm" href="../productivity/productivity"><i class="bi bi-graph-up-arrow"></i> Productivity</a>
-                                            <a class="btn btn-outline-secondary btn-sm" href="../productivity/incentives"><i class="bi bi-coin"></i> Incentives</a>
                                             <?php if ($isAdmin): ?>
                                                 <a class="btn btn-outline-secondary btn-sm" href="salary-setup"><i class="bi bi-wallet2"></i> Salary Setup</a>
                                                 <a class="btn btn-outline-secondary btn-sm" href="bonus-loans"><i class="bi bi-gift"></i> Bonus & Loans</a>

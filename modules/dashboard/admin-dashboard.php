@@ -115,25 +115,27 @@ if ($stmt) { $stmt->bind_param('s', $todayDate); $stmt->execute(); $agentsLateTo
 $todayCapacity = 0;
 $yy = (int)$now->format('Y');
 $mo = (int)$now->format('m');
-$stmt = $conn->prepare("
-    SELECT
-      COALESCE(SUM(
-        CASE
-          WHEN d.status IN ('Full Day','In Progress') THEN COALESCE(pt.daily_target,0)
-          WHEN d.status = 'Half Day' THEN FLOOR(COALESCE(pt.daily_target,0) / 2)
-          ELSE 0
-        END
-      ),0) AS cap
-    FROM hr_attendance_days d
-    LEFT JOIN productivity_targets pt
-      ON pt.agent_id = d.user_id AND pt.year = ? AND pt.month = ?
-    WHERE d.work_date = ?
-");
-if ($stmt) {
-    $stmt->bind_param('iis', $yy, $mo, $todayDate);
-    $stmt->execute();
-    $todayCapacity = (int)(($stmt->get_result()->fetch_assoc() ?: [])['cap'] ?? 0);
-    $stmt->close();
+if (function_exists('productivityTargetsTableExists') && productivityTargetsTableExists()) {
+    $stmt = $conn->prepare("
+        SELECT
+          COALESCE(SUM(
+            CASE
+              WHEN d.status IN ('Full Day','In Progress') THEN COALESCE(pt.daily_target,0)
+              WHEN d.status = 'Half Day' THEN FLOOR(COALESCE(pt.daily_target,0) / 2)
+              ELSE 0
+            END
+          ),0) AS cap
+        FROM hr_attendance_days d
+        LEFT JOIN productivity_targets pt
+          ON pt.agent_id = d.user_id AND pt.year = ? AND pt.month = ?
+        WHERE d.work_date = ?
+    ");
+    if ($stmt) {
+        $stmt->bind_param('iis', $yy, $mo, $todayDate);
+        $stmt->execute();
+        $todayCapacity = (int)(($stmt->get_result()->fetch_assoc() ?: [])['cap'] ?? 0);
+        $stmt->close();
+    }
 }
 
 $invoiceTodayTotal = 0.0;

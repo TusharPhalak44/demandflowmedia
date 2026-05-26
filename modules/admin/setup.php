@@ -33,7 +33,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && (string)
             if (function_exists('ensureCampaignDetailsSchema')) ensureCampaignDetailsSchema();
             if (function_exists('ensureCampaignDeliverySchema')) ensureCampaignDeliverySchema();
             if (function_exists('ensureCampaignMetricsSchema')) ensureCampaignMetricsSchema();
-            if (function_exists('ensureProductivityTargetsSchema')) ensureProductivityTargetsSchema();
             if (function_exists('ensureLeadTagsSchema')) ensureLeadTagsSchema();
             if (function_exists('ensureBillingProfilesSchema')) ensureBillingProfilesSchema();
             if (function_exists('ensureTeamSchema')) ensureTeamSchema();
@@ -106,4 +105,3 @@ include __DIR__ . '/../../includes/layout/app_start.php';
 </div>
 
 <?php include __DIR__ . '/../../includes/layout/app_end.php'; ?>
-

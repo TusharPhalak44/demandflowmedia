@@ -762,7 +762,6 @@ function inferPermissionKeyForRequest(): ?string {
     if ($module === 'chat') return 'chat.access';
     if ($module === 'hr') return 'hr.access';
     if ($module === 'revenue') return 'revenue.access';
-    if ($module === 'productivity') return 'productivity.access';
     if ($module === 'sales') return 'sales.access';
 
     if ($module === 'admin') {

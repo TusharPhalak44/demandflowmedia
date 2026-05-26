@@ -388,7 +388,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <div class="fw-semibold"><i class="bi bi-people me-2"></i>Top Agents (<?php echo htmlspecialchars($filterCur); ?>)</div>
-                    <a class="btn btn-sm btn-light border" href="../productivity/productivity-admin.php"><i class="bi bi-bar-chart me-1"></i>Productivity</a>
+                    <span class="text-muted small"> </span>
                 </div>
                 <div class="card-body">
                     <div style="height: 260px;"><canvas id="chartAgents"></canvas></div>
