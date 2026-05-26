@@ -223,6 +223,7 @@ define('INCLUDED',true);
                         <?php foreach ([
                             'Email Marketing',
                             'Marketing Qualified Leads',
+                            'HQL/Callback',
                             'BANT',
                             'Appointment Generation',
                         ] as $val): ?>

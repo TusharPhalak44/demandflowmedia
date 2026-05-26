@@ -380,11 +380,29 @@ $campaigns = getCampaigns();
                         <li class="page-item <?php echo ($page <= 1) ? 'disabled' : ''; ?>">
                             <a class="page-link" href="?page=<?php echo max(1, $page - 1); ?>&<?php echo http_build_query(array_diff_key($_GET, ['page' => ''])); ?>">Prev</a>
                         </li>
-                        <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                            <li class="page-item <?php echo ($i === $page) ? 'active' : ''; ?>">
-                                <a class="page-link" href="?page=<?php echo $i; ?>&<?php echo http_build_query(array_diff_key($_GET, ['page' => ''])); ?>"><?php echo $i; ?></a>
-                            </li>
-                        <?php endfor; ?>
+                        <?php
+                            $range = 2; // Number of pages to show before and after current page
+                            $show_dots_at_start = false;
+                            $show_dots_at_end = false;
+
+                            for ($i = 1; $i <= $totalPages; $i++) {
+                                if ($i === 1 || $i === $totalPages || ($i >= $page - $range && $i <= $page + $range)) {
+                                    ?>
+                                    <li class="page-item <?php echo ($i === $page) ? 'active' : ''; ?>">
+                                        <a class="page-link" href="?page=<?php echo $i; ?>&<?php echo http_build_query(array_diff_key($_GET, ['page' => ''])); ?>"><?php echo $i; ?></a>
+                                    </li>
+                                    <?php
+                                    $show_dots_at_start = false;
+                                    $show_dots_at_end = false;
+                                } elseif ($i < $page - $range && !$show_dots_at_start) {
+                                    echo '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                                    $show_dots_at_start = true;
+                                } elseif ($i > $page + $range && !$show_dots_at_end) {
+                                    echo '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                                    $show_dots_at_end = true;
+                                }
+                            }
+                        ?>
                         <li class="page-item <?php echo ($page >= $totalPages) ? 'disabled' : ''; ?>">
                             <a class="page-link" href="?page=<?php echo min($totalPages, $page + 1); ?>&<?php echo http_build_query(array_diff_key($_GET, ['page' => ''])); ?>">Next</a>
                         </li>
