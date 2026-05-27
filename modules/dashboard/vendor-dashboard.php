@@ -28,7 +28,8 @@ $conn = getDbConnection();
 
 // Get assigned campaigns for this vendor
 $campaigns = [];
-$sql = "SELECT c.id, c.name, d.status, m.vendor_cpl, m.vendor_cpl_currency, m.uploads_enabled
+$sql = "SELECT c.id, c.name, d.status, m.vendor_cpl, m.vendor_cpl_currency, m.uploads_enabled,
+               d.status_updated_by, (SELECT full_name FROM users WHERE id = d.status_updated_by LIMIT 1) AS status_updated_by_name
         FROM campaigns c
         JOIN campaign_details d ON c.id = d.campaign_id
         JOIN vendor_campaign_map m ON c.id = m.campaign_id
@@ -171,6 +172,9 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                                 <td class="ps-3">
                                     <div class="fw-semibold"><?php echo htmlspecialchars($c['name']); ?></div>
                                     <span class="badge <?php echo $c['status']==='Live'?'bg-success':'bg-secondary'; ?> small"><?php echo htmlspecialchars($c['status']); ?></span>
+                                    <?php if ($c['status'] === 'Pause' && !empty($c['status_updated_by_name'])): ?>
+                                        <div class="x-small text-muted mt-1" style="font-size: 0.65rem;">by <?php echo htmlspecialchars($c['status_updated_by_name']); ?></div>
+                                    <?php endif; ?>
                                 </td>
                                 <td><?php echo number_format((float)$c['vendor_cpl'], 2); ?> <span class="small text-muted"><?php echo htmlspecialchars($c['vendor_cpl_currency']); ?></span></td>
                                 <td><?php echo number_format($s['total']); ?></td>

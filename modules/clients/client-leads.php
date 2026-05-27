@@ -128,6 +128,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array
         if ($ok) {
             $tagName = (string)($meta['tag'] ?? '');
             logLeadActivity($leadId, $userId, 'lead_tag_edited', ['tag' => $tagName, 'note' => $note, 'stage' => $stage, 'activity_id' => $activityId]);
+            
+            // Sync Stage with Client Delivery Status if it matches one of the valid statuses
+            if ($stage !== '') {
+                $validStatuses = getClientDeliveryStatuses();
+                $isMatch = false;
+                $normalizedStage = $stage;
+                foreach ($validStatuses as $vs) {
+                    if (strtolower($stage) === strtolower($vs)) {
+                        $isMatch = true;
+                        $normalizedStage = $vs;
+                        break;
+                    }
+                }
+                
+                if ($isMatch) {
+                    $stmtS = $conn->prepare("UPDATE leads SET client_delivery_status = ? WHERE id = ?");
+                    if ($stmtS) {
+                        $stmtS->bind_param('si', $normalizedStage, $leadId);
+                        if ($stmtS->execute()) {
+                            logLeadActivity($leadId, $userId, 'qa_updated', [
+                                'client_delivery_status' => $normalizedStage,
+                                'qa_client_comment' => 'Status updated via Stage edit (' . $stage . ')'
+                            ]);
+                        }
+                        $stmtS->close();
+                    }
+                }
+            }
         }
         echo json_encode(['ok' => $ok, 'current' => getLeadTagAssignments($leadId), 'timeline' => getLeadTagTimeline($leadId), 'can_remove' => $canRemove, 'editable_activity_id' => $latestId, 'can_edit_all' => $canEditAll]); exit;
     }
@@ -149,7 +177,7 @@ $filters = [];
 $filters['client_id'] = $clientId;
 if ($campaignId > 0) $filters['campaign_id'] = $campaignId;
 if ($q !== '') $filters['search'] = $q;
-$filters['client_delivery_status'] = 'Delivered';
+$filters['client_delivery_status'] = ['Delivered', 'Accepted', 'Rejected', 'TBD(To be discussed)', 'In Progress'];
 if ($tagId > 0) $filters['tag_id'] = $tagId;
 
 $data = getLeads($filters, $perPage, $page);
@@ -307,7 +335,14 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                 <td class="text-muted small"><?php echo htmlspecialchars($r['company_name'] ?? '—'); ?></td>
                 <td class="text-muted small"><?php echo htmlspecialchars($r['campaign_name'] ?? '—'); ?></td>
                 <td>
-                  <span class="badge bg-success-subtle text-success border">Delivered</span>
+                  <?php 
+                    $st = normalizeClientDeliveryStatus((string)($r['client_delivery_status'] ?? 'Delivered'));
+                    $cls = 'bg-success-subtle text-success';
+                    if ($st === 'Rejected') $cls = 'bg-danger-subtle text-danger';
+                    if ($st === 'TBD(To be discussed)') $cls = 'bg-warning-subtle text-warning';
+                    if ($st === 'In Progress') $cls = 'bg-info-subtle text-info';
+                  ?>
+                  <span class="badge <?php echo $cls; ?> border"><?php echo htmlspecialchars($st); ?></span>
                 </td>
                 <td>
                   <?php if (empty($shown)): ?>
@@ -369,54 +404,151 @@ include __DIR__ . '/../../includes/layout/app_start.php';
   </div>
 </div>
 
+<style>
+  #tagLeadCurrent .tag-chip {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 0.25rem 0.75rem;
+    border-radius: 50rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  #tagLeadCurrent .tag-chip:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+  }
+  #tagLeadTimeline tr:last-child {
+    border-bottom: none;
+  }
+  .timeline-badge {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 10px;
+    position: relative;
+  }
+  .timeline-badge::after {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: 4px;
+    width: 2px;
+    height: 100px;
+    background: #f1f3f5;
+    z-index: -1;
+  }
+  #tagLeadTimeline tr:last-child .timeline-badge::after {
+    display: none;
+  }
+</style>
+
 <div class="modal fade" id="tagLeadModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content border-0 shadow">
-      <div class="modal-header bg-light border-0 py-3">
-        <div>
-          <div class="h5 mb-0">Lead Tags</div>
-          <div class="text-muted small" id="tagLeadSubtitle"></div>
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 1.25rem; overflow: hidden;">
+      <div class="modal-header bg-white border-0 pt-4 px-4">
+        <div class="d-flex align-items-center">
+          <div class="bg-primary bg-opacity-10 p-3 rounded-4 me-3 text-primary">
+            <i class="bi bi-person-badge fs-3"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold text-dark mb-0">Engagement Intelligence</h5>
+            <div class="text-muted small d-flex align-items-center mt-1" id="tagLeadSubtitle"></div>
+          </div>
         </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body p-3">
-        <div class="alert alert-danger d-none mb-3" id="tagLeadError"></div>
-        <div class="row g-3">
-          <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-              <div class="card-header bg-light fw-semibold py-2">Current Tags</div>
-              <div class="card-body">
-                <div class="input-group input-group-sm mb-3">
-                  <input class="form-control" id="tagLeadInput" placeholder="Type tag name and add">
-                  <button class="btn btn-primary" type="button" id="tagLeadAddBtn"><i class="bi bi-plus"></i> Add</button>
-                </div>
-                <div class="row g-2 mb-3">
-                  <div class="col-md-5">
-                    <label class="form-label small text-muted">Stage</label>
-                    <select class="form-select form-select-sm" id="tagLeadStage">
-                      <option value="">—</option>
-                      <option>New</option>
-                      <option>Contacted</option>
-                      <option>Follow Up</option>
-                      <option>Meeting Booked</option>
-                      <option>No Response</option>
-                      <option>Wrong Contact</option>
-                      <option>Not Interested</option>
-                    </select>
-                  </div>
-                  <div class="col-md-7">
-                    <label class="form-label small text-muted">Note (optional)</label>
-                    <textarea class="form-control form-control-sm" id="tagLeadNote" rows="2" placeholder="Add a note for this tagging action"></textarea>
+      <div class="modal-body p-4">
+        <div class="alert alert-danger d-none mb-4 rounded-3 border-0 shadow-sm" id="tagLeadError"></div>
+        
+        <div class="row g-4">
+          <!-- Left Column: Actions -->
+          <div class="col-lg-5">
+            <div class="card border-0 bg-white rounded-4 shadow-sm mb-4">
+              <div class="card-body p-4">
+                <h6 class="fw-bold text-dark mb-4 d-flex align-items-center">
+                  <span class="badge bg-primary rounded-pill me-2" style="width: 24px; height: 24px; padding: 5px;">1</span>
+                  Add New Engagement
+                </h6>
+                
+                <!-- Tag Input -->
+                <div class="mb-4">
+                  <div class="input-group input-group-lg border rounded-3 overflow-hidden bg-light shadow-none">
+                    <span class="input-group-text bg-transparent border-0"><i class="bi bi-tag text-muted"></i></span>
+                    <input class="form-control bg-transparent border-0 ps-0 shadow-none" style="font-size: 1rem;" id="tagLeadInput" placeholder="Enter tag name...">
+                    <button class="btn btn-primary px-4" type="button" id="tagLeadAddBtn">
+                      <i class="bi bi-send-fill"></i>
+                    </button>
                   </div>
                 </div>
-                <div class="d-flex flex-wrap gap-1 mb-3" id="tagLeadPresets"></div>
-                <div class="border rounded p-3 mb-3 d-none bg-light" id="tagLeadEditBox">
-                  <div class="small fw-semibold mb-2">Edit Last Tag Note</div>
-                  <div class="row g-2 align-items-end">
-                    <div class="col-md-4">
-                      <label class="form-label small text-muted mb-1">Stage</label>
-                      <select class="form-select form-select-sm" id="tagLeadEditStage">
-                        <option value="">—</option>
+
+                <!-- Stage -->
+                <div class="mb-4">
+                  <label class="form-label x-small fw-bold text-uppercase text-muted tracking-wider">Lead Stage</label>
+                  <select class="form-select border-0 bg-light rounded-3 px-3 py-2 shadow-none" id="tagLeadStage">
+                    <option value="">Select current stage</option>
+                    <option>New</option>
+                    <option>Contacted</option>
+                    <option>Follow Up</option>
+                    <option>Meeting Booked</option>
+                    <option>No Response</option>
+                    <option>Wrong Contact</option>
+                    <option>Not Interested</option>
+                    <option>Accepted</option>
+                    <option>Rejected</option>
+                    <option>In Progress</option>
+                    <option>TBD(To be discussed)</option>
+                  </select>
+                </div>
+
+                <!-- Note -->
+                <div class="mb-4">
+                  <label class="form-label x-small fw-bold text-uppercase text-muted tracking-wider">Internal Note</label>
+                  <textarea class="form-control border-0 bg-light rounded-3 px-3 py-2 shadow-none" id="tagLeadNote" rows="3" placeholder="What happened during this engagement?"></textarea>
+                </div>
+
+                <!-- Quick Presets -->
+                <div class="mb-0">
+                  <label class="form-label x-small fw-bold text-uppercase text-muted tracking-wider mb-3">Quick Actions</label>
+                  <div class="d-flex flex-wrap gap-2" id="tagLeadPresets"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Current Tags (No scrollbar, chip based) -->
+            <div class="card border-0 bg-white rounded-4 shadow-sm">
+              <div class="card-body p-4">
+                <h6 class="fw-bold text-dark mb-3">Assigned Tags</h6>
+                <div class="d-flex flex-wrap gap-2" id="tagLeadCurrent"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Timeline -->
+          <div class="col-lg-7">
+            <div class="card border-0 bg-white rounded-4 shadow-sm h-100 overflow-hidden">
+              <div class="card-header bg-white border-0 py-4 px-4 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold text-dark mb-0">
+                  <i class="bi bi-clock-history me-2 text-primary"></i>History
+                </h6>
+                <button class="btn btn-primary btn-sm rounded-pill px-3 d-none" id="btnToggleEditBox" style="font-size: 0.75rem;">
+                  <i class="bi bi-pencil-square me-1"></i>Edit Last
+                </button>
+              </div>
+              <div class="card-body p-0">
+                <!-- Highlighted Edit Box -->
+                <div class="px-4 py-3 bg-primary bg-opacity-5 border-top border-bottom d-none" id="tagLeadEditBox">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3">Editing Last Action</span>
+                    <button type="button" class="btn-close small" id="btnCloseEditBox" style="font-size: 0.6rem;"></button>
+                  </div>
+                  <div class="row g-3 align-items-end">
+                    <div class="col-md-5">
+                      <select class="form-select form-select-sm border-0 bg-white rounded-3 shadow-sm" id="tagLeadEditStage">
+                        <option value="">Update Stage</option>
                         <option>New</option>
                         <option>Contacted</option>
                         <option>Follow Up</option>
@@ -424,36 +556,30 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                         <option>No Response</option>
                         <option>Wrong Contact</option>
                         <option>Not Interested</option>
+                        <option>Accepted</option>
+                        <option>Rejected</option>
+                        <option>In Progress</option>
+                        <option>TBD(To be discussed)</option>
                       </select>
                     </div>
-                    <div class="col-md-5">
-                      <label class="form-label small text-muted mb-1">Note</label>
-                      <input class="form-control form-control-sm" id="tagLeadEditNote" placeholder="Edit note">
-                    </div>
-                    <div class="col-md-3 d-grid">
-                      <button class="btn btn-outline-primary btn-sm" type="button" id="tagLeadEditSave"><i class="bi bi-save"></i> Save</button>
+                    <div class="col-md-7">
+                      <div class="input-group input-group-sm shadow-sm">
+                        <input class="form-control border-0 rounded-start-3" id="tagLeadEditNote" placeholder="Update note content...">
+                        <button class="btn btn-primary px-3 rounded-end-3" type="button" id="tagLeadEditSave">Save</button>
+                      </div>
                     </div>
                   </div>
-                  <div class="text-muted small mt-2">Only the last tag note can be edited.</div>
                 </div>
-                <div class="border rounded p-2" style="min-height: 180px; max-height: 360px; overflow:auto;" id="tagLeadCurrent"></div>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-              <div class="card-header bg-light fw-semibold py-2">Tag Timeline</div>
-              <div class="card-body p-0">
+
+                <!-- Timeline Table -->
                 <div class="table-responsive">
-                  <table class="table table-sm table-striped mb-0 align-middle">
+                  <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
-                      <tr>
-                        <th class="ps-3">When</th>
-                        <th>Action</th>
-                        <th>Stage</th>
-                        <th>Tag</th>
-                        <th>Note</th>
-                        <th class="pe-3">By</th>
+                      <tr style="border-bottom: 2px solid #f1f3f5;">
+                        <th class="ps-4 py-3 border-0 text-uppercase x-small fw-bold text-muted">Activity</th>
+                        <th class="py-3 border-0 text-uppercase x-small fw-bold text-muted text-center">Stage</th>
+                        <th class="py-3 border-0 text-uppercase x-small fw-bold text-muted text-center">Note</th>
+                        <th class="pe-4 py-3 border-0 text-uppercase x-small fw-bold text-muted text-end">By</th>
                       </tr>
                     </thead>
                     <tbody id="tagLeadTimeline"></tbody>
@@ -464,8 +590,8 @@ include __DIR__ . '/../../includes/layout/app_start.php';
           </div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Close</button>
+      <div class="modal-footer border-0 px-4 pb-4">
+        <button type="button" class="btn btn-light px-4 rounded-3 border-0" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
@@ -488,6 +614,8 @@ include __DIR__ . '/../../includes/layout/app_start.php';
   const addBtn = document.getElementById('tagLeadAddBtn');
   const presetsEl = document.getElementById('tagLeadPresets');
   const editBoxEl = document.getElementById('tagLeadEditBox');
+  const btnToggleEditBox = document.getElementById('btnToggleEditBox');
+  const btnCloseEditBox = document.getElementById('btnCloseEditBox');
   const editStageEl = document.getElementById('tagLeadEditStage');
   const editNoteEl = document.getElementById('tagLeadEditNote');
   const editSaveEl = document.getElementById('tagLeadEditSave');
@@ -516,7 +644,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
 
   function renderCurrent(rows) {
     if (!Array.isArray(rows) || !rows.length) {
-      currentEl.innerHTML = '<div class="text-muted small">No tags yet.</div>';
+      currentEl.innerHTML = '<div class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i> No tags assigned yet.</div>';
       return;
     }
     const html = rows.map(r => {
@@ -524,11 +652,11 @@ include __DIR__ . '/../../includes/layout/app_start.php';
       const role = String(r.added_by_role || '');
       const by = role.startsWith('client_') ? esc(r.added_by_name || 'System') : 'TaRaj Global Solutions';
       const when = fmt(r.added_at);
-      const btn = canRemove ? `<button class="btn btn-light border btn-xs ms-2" data-remove-tag="${Number(r.tag_id)}" title="Remove"><i class="bi bi-x"></i></button>` : '';
-      return `<div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2">
+      const btn = canRemove ? `<button class="btn btn-link text-danger p-0" data-remove-tag="${Number(r.tag_id)}" title="Remove Tag"><i class="bi bi-trash"></i></button>` : '';
+      return `<div class="d-flex justify-content-between align-items-center bg-white border rounded-3 px-3 py-2 mb-2 shadow-xs">
         <div>
-          <div class="fw-semibold">${name}</div>
-          <div class="text-muted small">by ${by} · ${esc(when)}</div>
+          <div class="fw-bold text-dark" style="font-size: 0.9rem;">${name}</div>
+          <div class="text-muted small" style="font-size: 0.75rem;">by ${by} · ${esc(when)}</div>
         </div>
         <div>${btn}</div>
       </div>`;
@@ -538,26 +666,32 @@ include __DIR__ . '/../../includes/layout/app_start.php';
 
   function renderTimeline(rows) {
     if (!Array.isArray(rows) || !rows.length) {
-      timelineEl.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No tagging activity.</td></tr>';
+      timelineEl.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">No engagement history found.</td></tr>';
       return;
     }
     timelineEl.innerHTML = rows.map(r => {
       const act = String(r.action || '');
-      const label = act === 'lead_tag_added' ? 'Added' : (act === 'lead_tag_removed' ? 'Removed' : (act === 'lead_tag_edited' ? 'Edited' : act));
+      let label = act;
+      let labelCls = 'bg-secondary';
+      if (act === 'lead_tag_added') { label = 'Tag Added'; labelCls = 'bg-success'; }
+      else if (act === 'lead_tag_removed') { label = 'Tag Removed'; labelCls = 'bg-danger'; }
+      else if (act === 'lead_tag_edited') { label = 'Edited'; labelCls = 'bg-info'; }
+
       const stage = esc((r.meta && r.meta.stage) || '');
       const tag = esc((r.meta && (r.meta.tag || r.meta.tag_name)) || '');
       const note = esc((r.meta && (r.meta.note || r.meta.comment)) || '');
       const ar = String(r.actor_role || '');
       const who = ar.startsWith('client_') ? esc(r.actor_name || 'System') : 'TaRaj Global Solutions';
-      const canEditThis = Number(r.id || 0) === Number(editableActivityId || 0);
-      const editBtn = canEditThis ? `<button class="btn btn-light border btn-xs ms-2" type="button" data-edit-tag="${Number(r.id)}" title="Edit last note"><i class="bi bi-pencil"></i></button>` : '';
+      
       return `<tr>
-        <td class="ps-3 text-muted small">${esc(fmt(r.created_at))}</td>
-        <td class="small fw-semibold">${esc(label)}</td>
-        <td class="small text-muted">${stage || '—'}</td>
-        <td class="small">${tag || '—'}</td>
-        <td class="small text-muted">${note ? `<span class="d-inline-block text-truncate" style="max-width: 220px;" title="${note}">${note}</span>` : '—'}</td>
-        <td class="pe-3 text-muted small">${who}${editBtn}</td>
+        <td class="ps-4 text-muted small">${esc(fmt(r.created_at))}</td>
+        <td><span class="badge ${labelCls} bg-opacity-10 text-${labelCls.replace('bg-', '')} border border-${labelCls.replace('bg-', '')} small px-2 py-1" style="font-size: 0.7rem;">${esc(label)}</span></td>
+        <td class="small fw-semibold text-dark">${stage || '—'}</td>
+        <td class="small text-muted">${tag || '—'}</td>
+        <td class="small">
+          <div class="text-muted text-truncate" style="max-width: 180px;" title="${note}">${note || '—'}</div>
+        </td>
+        <td class="pe-4 text-muted small">${who}</td>
       </tr>`;
     }).join('');
   }
@@ -571,15 +705,43 @@ include __DIR__ . '/../../includes/layout/app_start.php';
     const res = await fetch(window.location.href, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
     const json = await res.json();
     if (!json || !json.ok) throw new Error((json && json.error) ? json.error : 'Request failed');
+    
     canRemove = !!json.can_remove;
     editableActivityId = Number(json.editable_activity_id || 0);
     canEditAll = !!json.can_edit_all;
+    
     renderCurrent(json.current || []);
     renderTimeline(json.timeline || []);
-    if (editBoxEl) {
-      if (editableActivityId > 0) editBoxEl.classList.remove('d-none');
-      else editBoxEl.classList.add('d-none');
+    
+    // Update Toggle Button Visibility
+    if (btnToggleEditBox) {
+      if (editableActivityId > 0) btnToggleEditBox.classList.remove('d-none');
+      else {
+        btnToggleEditBox.classList.add('d-none');
+        if (editBoxEl) editBoxEl.classList.add('d-none');
+      }
     }
+  }
+
+  // Handle Toggle Button
+  if (btnToggleEditBox) {
+    btnToggleEditBox.addEventListener('click', () => {
+      editBoxEl.classList.toggle('d-none');
+      if (!editBoxEl.classList.contains('d-none')) {
+        // Pre-fill edit fields from the last action in timeline
+        const firstRow = timelineEl.querySelector('tr');
+        if (firstRow) {
+          const stage = firstRow.querySelector('td:nth-child(3)').textContent.trim();
+          const note = firstRow.querySelector('td:nth-child(5) .text-truncate').textContent.trim();
+          editStageEl.value = stage !== '—' ? stage : '';
+          editNoteEl.value = note !== '—' ? note : '';
+        }
+      }
+    });
+  }
+
+  if (btnCloseEditBox) {
+    btnCloseEditBox.addEventListener('click', () => editBoxEl.classList.add('d-none'));
   }
 
   document.addEventListener('click', async (e) => {
@@ -589,18 +751,21 @@ include __DIR__ . '/../../includes/layout/app_start.php';
     activeLeadId = Number(btn.getAttribute('data-lead-id') || 0);
     const company = btn.getAttribute('data-company') || '';
     const person = btn.getAttribute('data-person') || '';
-    subtitleEl.textContent = [company, person].filter(Boolean).join(' · ');
+    subtitleEl.innerHTML = `<i class="bi bi-building me-1"></i> ${esc(company)} <span class="mx-2">•</span> <i class="bi bi-person me-1"></i> ${esc(person)}`;
+    
     inputEl.value = '';
     if (stageEl) stageEl.value = '';
     noteEl.value = '';
     if (editBoxEl) editBoxEl.classList.add('d-none');
-    currentEl.innerHTML = '<div class="text-muted small">Loading…</div>';
-    timelineEl.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Loading…</td></tr>';
+    
+    currentEl.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
+    timelineEl.innerHTML = '<tr><td colspan="6" class="text-center py-5"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>';
+    
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
     try {
       await api('get_tagging');
     } catch (err) {
-      showErr(err.message || 'Unable to load tags');
+      showErr(err.message || 'Unable to load engagement data');
       currentEl.innerHTML = '';
       timelineEl.innerHTML = '';
     }
@@ -609,7 +774,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
   addBtn.addEventListener('click', async () => {
     hideErr();
     const name = (inputEl.value || '').trim();
-    if (!name) { showErr('Enter a tag name.'); return; }
+    if (!name) { showErr('Please specify a tag name.'); return; }
     addBtn.disabled = true;
     try {
       const note = (noteEl.value || '').trim();
@@ -619,15 +784,15 @@ include __DIR__ . '/../../includes/layout/app_start.php';
       if (stageEl) stageEl.value = '';
       noteEl.value = '';
     } catch (err) {
-      showErr(err.message || 'Unable to add tag');
+      showErr(err.message || 'Operation failed');
     } finally {
       addBtn.disabled = false;
     }
   });
 
   if (presetsEl) {
-    const presets = ['Interested','Follow Up','Meeting Booked','No Response','Wrong Contact','Not Interested'];
-    presetsEl.innerHTML = presets.map(p => `<button type="button" class="btn btn-light border btn-xs" data-tag-preset="${esc(p)}">${esc(p)}</button>`).join('');
+    const presets = ['Interested','Follow Up','Meeting Booked','No Response','Wrong Contact','Not Interested', 'Accepted', 'Rejected', 'In Progress', 'TBD(To be discussed)'];
+    presetsEl.innerHTML = presets.map(p => `<button type="button" class="btn btn-outline-secondary btn-xs rounded-pill px-3" style="font-size: 0.7rem;" data-tag-preset="${esc(p)}">${esc(p)}</button>`).join('');
     presetsEl.addEventListener('click', (e) => {
       const b = e.target.closest('[data-tag-preset]');
       if (!b) return;
@@ -643,14 +808,13 @@ include __DIR__ . '/../../includes/layout/app_start.php';
       hideErr();
       const note = (editNoteEl.value || '').trim();
       const stage = (editStageEl.value || '').trim();
-      if (!editableActivityId) { showErr('No editable tag found.'); return; }
+      if (!editableActivityId) { showErr('Action context lost.'); return; }
       editSaveEl.disabled = true;
       try {
         await api('edit_tag_activity', { activity_id: String(editableActivityId), note, stage });
-        editNoteEl.value = '';
-        editStageEl.value = '';
+        editBoxEl.classList.add('d-none');
       } catch (err) {
-        showErr(err.message || 'Unable to edit tag');
+        showErr(err.message || 'Update failed');
       } finally {
         editSaveEl.disabled = false;
       }

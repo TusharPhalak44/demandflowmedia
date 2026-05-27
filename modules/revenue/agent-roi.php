@@ -58,7 +58,7 @@ $stmt = $conn->prepare("
            SUM(COALESCE(d.cpl, 0)) AS revenue
     FROM leads l
     LEFT JOIN campaign_details d ON d.campaign_id = l.campaign_id
-    WHERE l.client_delivery_status = 'Delivered' AND l.created_at BETWEEN ? AND ?
+    WHERE l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ?
     GROUP BY l.agent_id, agent_name, currency
     ORDER BY revenue DESC
 ");

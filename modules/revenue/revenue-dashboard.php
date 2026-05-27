@@ -81,7 +81,7 @@ $stmt = $conn->prepare("
     FROM leads l
     LEFT JOIN campaign_details d ON d.campaign_id = l.campaign_id
     LEFT JOIN clients cl ON cl.client_code = d.client_code
-    WHERE l.client_delivery_status = 'Delivered' AND l.created_at BETWEEN ? AND ?
+    WHERE l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ?
     GROUP BY client_code, client_name, currency
     ORDER BY revenue DESC
 ");
@@ -102,7 +102,7 @@ $stmt = $conn->prepare("
         SUM(COALESCE(d.cpl, 0)) AS revenue
     FROM leads l
     LEFT JOIN campaign_details d ON d.campaign_id = l.campaign_id
-    WHERE l.client_delivery_status = 'Delivered' AND l.created_at BETWEEN ? AND ?
+    WHERE l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ?
     GROUP BY l.agent_id, agent_name, currency
     ORDER BY revenue DESC
 ");
@@ -123,8 +123,8 @@ $stmt = $conn->prepare("
         COALESCE(cl.name, '') AS client_name,
         d.cpl,
         COALESCE(d.cpl_currency, 'USD') AS currency,
-        SUM(CASE WHEN l.client_delivery_status = 'Delivered' AND l.created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS delivered,
-        SUM(CASE WHEN l.client_delivery_status = 'Delivered' AND l.created_at BETWEEN ? AND ? THEN COALESCE(d.cpl, 0) ELSE 0 END) AS generated,
+        SUM(CASE WHEN l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS delivered,
+        SUM(CASE WHEN l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ? THEN COALESCE(d.cpl, 0) ELSE 0 END) AS generated,
         r.revenue AS allocated,
         COALESCE(r.currency, d.cpl_currency, 'USD') AS allocated_currency
     FROM campaigns c

@@ -60,7 +60,7 @@ $kpiSql = "
       SUM(CASE WHEN (qa_status IS NULL OR qa_status IN ('Pending','Reopened')) THEN 1 ELSE 0 END) AS pending_qa,
       SUM(CASE WHEN qa_status = 'Qualified' THEN 1 ELSE 0 END) AS qualified,
       SUM(CASE WHEN qa_status = 'Disqualified' THEN 1 ELSE 0 END) AS disqualified,
-      SUM(CASE WHEN (qa_status = 'Delivered' OR client_delivery_status = 'Delivered') THEN 1 ELSE 0 END) AS delivered,
+      SUM(CASE WHEN (qa_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') OR client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress')) THEN 1 ELSE 0 END) AS delivered,
       SUM(CASE WHEN form_done = 'Yes' THEN 1 ELSE 0 END) AS forms,
       SUM(CASE WHEN qa_status = 'Qualified' AND form_done = 'No' THEN 1 ELSE 0 END) AS forms_pending
     FROM leads
@@ -242,7 +242,7 @@ if (!empty($campaignIds)) {
     $stmt = $conn->prepare("
         SELECT
           l.campaign_id,
-          SUM(CASE WHEN l.client_delivery_status = 'Delivered' THEN 1 ELSE 0 END) AS delivered,
+          SUM(CASE WHEN l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') THEN 1 ELSE 0 END) AS delivered,
           SUM(CASE WHEN (l.qa_status IS NULL OR l.qa_status IN ('Pending','Reopened')) THEN 1 ELSE 0 END) AS pending_qa,
           MAX(l.created_at) AS last_lead_at
         FROM leads l

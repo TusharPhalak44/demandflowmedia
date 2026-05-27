@@ -12,7 +12,7 @@ $ROLES = [
 // Allowed QA statuses (normalized display values)
 $QA_STATUSES = ['Pending', 'Reopened', 'Qualified', 'Disqualified', 'Rework Needed', 'Duplicate', 'Rectified', 'Approved', 'Rejected'];
 
-$CLIENT_DELIVERY_STATUSES = ['Pending', 'Delivered'];
+$CLIENT_DELIVERY_STATUSES = ['Pending', 'Delivered', 'Accepted', 'Rejected', 'TBD(To be discussed)', 'In Progress'];
 
 function getClientDeliveryStatuses(): array {
     global $CLIENT_DELIVERY_STATUSES;
@@ -67,10 +67,15 @@ function normalizeQaStatus(?string $status): string
 function normalizeClientDeliveryStatus(?string $status): string
 {
     if ($status === null) return 'Pending';
-    $status = strtolower(trim($status));
-    if (in_array($status, ['delivered', 'yes', 'y', 'true', '1'], true)) return 'Delivered';
-    if (in_array($status, ['pending', 'no', 'n', 'false', '0'], true)) return 'Pending';
-    return ucfirst($status);
+    $status = trim($status);
+    $lower = strtolower($status);
+    if (in_array($lower, ['delivered', 'yes', 'y', 'true', '1'], true)) return 'Delivered';
+    if (in_array($lower, ['pending', 'no', 'n', 'false', '0'], true)) return 'Pending';
+    if ($lower === 'accepted') return 'Accepted';
+    if ($lower === 'rejected') return 'Rejected';
+    if ($lower === 'tbd' || $lower === 'tbd(to be discussed)') return 'TBD(To be discussed)';
+    if ($lower === 'in progress' || $lower === 'in_progress') return 'In Progress';
+    return $status;
 }
 
 /**

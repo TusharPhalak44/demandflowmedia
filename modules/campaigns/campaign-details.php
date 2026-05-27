@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 requireRole(['admin','director','manager_director','operations_director','operations_manager','operations_agent','agent','qa','qa_director','qa_manager','qa_agent','email_marketing_director','email_marketing_manager','email_marketing_agent','email_marketing_executive','form_filler','sales_director','sales_manager','sdr']);
 ensureCsrfToken();
 ensureDatabaseSchema();
+ensureCampaignDetailsColumns();
 $id = isset($_GET['id']) ? (int)$_GET['id'] : (int)($_POST['campaign_id'] ?? 0);
 $isAjaxRequest = (strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest');
 $wantsJson = $isAjaxRequest || (strtolower((string)($_GET['format'] ?? '')) === 'json');
@@ -194,6 +195,19 @@ if ($clientId > 0) {
     }
 }
 
+$statusUpdatedByName = '';
+$subid = (int)($row['status_updated_by'] ?? 0);
+if ($subid > 0) {
+    $stmt = $conn->prepare("SELECT full_name, username FROM users WHERE id = ? LIMIT 1");
+    if ($stmt) {
+        $stmt->bind_param('i', $subid);
+        $stmt->execute();
+        $u = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if ($u) $statusUpdatedByName = $u['full_name'] ?: $u['username'];
+    }
+}
+
 $pageTitle = 'Campaign Details';
 include __DIR__ . '/../../includes/layout/app_start.php';
 ?>
@@ -226,7 +240,12 @@ include __DIR__ . '/../../includes/layout/app_start.php';
       <div class="flex-grow-1">
         <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
           <h3 class="mb-0"><?php echo htmlspecialchars($campTitle); ?></h3>
-          <span class="badge border <?php echo htmlspecialchars($cls); ?>"><?php echo htmlspecialchars($s !== '' ? $s : '—'); ?></span>
+          <div class="d-flex flex-column align-items-start">
+            <span class="badge border <?php echo htmlspecialchars($cls); ?>"><?php echo htmlspecialchars($s !== '' ? $s : '—'); ?></span>
+            <?php if ($s === 'Pause' && !empty($statusUpdatedByName)): ?>
+              <span class="x-small text-muted mt-1" style="font-size: 0.65rem; line-height: 1;">by <?php echo htmlspecialchars($statusUpdatedByName); ?></span>
+            <?php endif; ?>
+          </div>
           <?php if (trim((string)($row['code'] ?? '')) !== ''): ?>
             <span class="dfb-pill"><?php echo htmlspecialchars((string)($row['code'] ?? '')); ?></span>
           <?php endif; ?>

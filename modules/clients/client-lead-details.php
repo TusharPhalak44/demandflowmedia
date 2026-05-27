@@ -43,7 +43,7 @@ $stmt->close();
 if (!$lead) { header('Location: client-leads'); exit; }
 
 $cds = normalizeClientDeliveryStatus((string)($lead['client_delivery_status'] ?? 'Pending'));
-if (!isAdmin() && $cds !== 'Delivered') {
+if (!isAdmin() && $cds === 'Pending') {
   http_response_code(403);
   echo 'Access denied';
   exit;
@@ -175,7 +175,14 @@ include __DIR__ . '/../../includes/layout/app_start.php';
       <div class="d-flex flex-wrap gap-2 justify-content-end">
         <span class="badge bg-secondary-subtle text-secondary border"><?php echo htmlspecialchars((string)($lead['campaign_name'] ?? '')); ?></span>
         <span class="badge <?php echo $formClass; ?> border">Submitted: <?php echo htmlspecialchars(($formDone === 'Yes') ? 'Submitted' : 'Not Submitted'); ?></span>
-        <span class="badge bg-success-subtle text-success border">Delivery: Delivered</span>
+        <?php 
+          $st = normalizeClientDeliveryStatus((string)($lead['client_delivery_status'] ?? 'Delivered'));
+          $cls = 'bg-success-subtle text-success';
+          if ($st === 'Rejected') $cls = 'bg-danger-subtle text-danger';
+          if ($st === 'TBD(To be discussed)') $cls = 'bg-warning-subtle text-warning';
+          if ($st === 'In Progress') $cls = 'bg-info-subtle text-info';
+        ?>
+        <span class="badge <?php echo $cls; ?> border">Delivery: <?php echo htmlspecialchars($st); ?></span>
       </div>
       <div class="mt-2 d-flex gap-2 justify-content-end">
         <a class="btn btn-light border btn-sm" href="client-leads.php"><i class="bi bi-arrow-left me-1"></i>Back</a>

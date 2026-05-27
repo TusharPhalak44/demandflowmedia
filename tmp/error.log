@@ -7,3 +7,99 @@ Stack trace:
 Stack trace:
 #0 {main}
   thrown in C:\xampp\htdocs\CRM\check_db.php on line 11
+[27-May-2026 18:43:05 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:05 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:05 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:05 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:06 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:08 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:08 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:12 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:13 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:13 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:13 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:15 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:16 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:16 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:43:17 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:44:13 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:44:13 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:45:13 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:45:13 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:46:13 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:46:13 Europe/Berlin] PHP Parse error:  Unmatched '}' in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 348
+[27-May-2026 18:55:21 Europe/Berlin] PHP Parse error:  syntax error, unexpected token "<", expecting end of file in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 14
+[27-May-2026 18:57:37 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 18:57:40 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 18:58:35 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 18:58:35 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 18:58:50 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 18:59:20 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 18:59:22 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 18:59:28 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 18:59:31 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 18:59:35 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:00:52 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:02:22 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:02:34 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:02:40 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:03:04 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:09:14 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:09:14 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:15:14 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:15:14 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:24:32 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:24:33 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:30:14 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:30:14 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:36:14 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 19:36:14 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:01:53 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:01:54 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:02:06 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:02:07 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:02:15 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:03:34 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:03:34 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:05:31 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:05:48 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:05:49 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:05:49 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:07:13 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:23:58 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:24:12 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:24:16 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:24:24 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:24:55 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:30:27 Europe/Berlin] PHP Warning:  Undefined variable $layoutDefaultTheme in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 38
+[27-May-2026 20:30:27 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function bind_param() on bool in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php:3910
+Stack trace:
+#0 C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php(3933): {closure}('hr_attendance_d...', 'late_minutes')
+#1 C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php(4090): {closure}('hr_attendance_d...', 'late_minutes', 'INT NOT NULL DE...')
+#2 C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php(5144): ensureDatabaseSchema()
+#3 C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_end.php(15): getUnreadToastNotifications(17, 3)
+#4 C:\xampp\htdocs\CRM\demandflowmedia\modules\qa\audit.php(568): include('C:\\xampp\\htdocs...')
+#5 {main}
+  thrown in C:\xampp\htdocs\CRM\demandflowmedia\includes\functions.php on line 3910
+[27-May-2026 20:31:28 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined function getUserPreference() in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php:16
+Stack trace:
+#0 C:\xampp\htdocs\CRM\demandflowmedia\modules\qa\audit.php(156): include()
+#1 {main}
+  thrown in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 16
+[27-May-2026 20:31:30 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined function getUserPreference() in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php:16
+Stack trace:
+#0 C:\xampp\htdocs\CRM\demandflowmedia\modules\qa\audit.php(156): include()
+#1 {main}
+  thrown in C:\xampp\htdocs\CRM\demandflowmedia\includes\layout\app_start.php on line 16
+[27-May-2026 20:56:10 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function bind_param() on bool in C:\xampp\htdocs\CRM\demandflowmedia\modules\clients\client-campaigns.php:160
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CRM\demandflowmedia\modules\clients\client-campaigns.php on line 160
+[27-May-2026 20:56:11 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function bind_param() on bool in C:\xampp\htdocs\CRM\demandflowmedia\modules\clients\client-campaigns.php:160
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CRM\demandflowmedia\modules\clients\client-campaigns.php on line 160
+[27-May-2026 20:56:15 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function bind_param() on bool in C:\xampp\htdocs\CRM\demandflowmedia\modules\clients\client-campaigns.php:160
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CRM\demandflowmedia\modules\clients\client-campaigns.php on line 160

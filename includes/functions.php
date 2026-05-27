@@ -2071,6 +2071,22 @@ function ensureCsrfToken(): void {
     }
 }
 
+function ensureCampaignDetailsColumns(): void {
+    $conn = getDbConnection();
+    $hasColumn = function(string $table, string $column) use ($conn): bool {
+        $stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+        $stmt->bind_param('ss', $table, $column);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc() ?: ['cnt' => 0];
+        $stmt->close();
+        return ((int)($row['cnt'] ?? 0)) > 0;
+    };
+
+    if (!$hasColumn('campaign_details', 'status_updated_by')) {
+        $conn->query("ALTER TABLE campaign_details ADD COLUMN status_updated_by INT NULL AFTER status");
+    }
+}
+
 function ensureLeadsTrackingColumns(): void {
     $conn = getDbConnection();
     $rs = $conn->query("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'leads' LIMIT 1");
@@ -5958,8 +5974,8 @@ function setCampaignStatus(int $campaignId, string $status, int $updatedBy = 0):
 
     $active = in_array($status, ['Active','Live'], true) ? 1 : 0;
 
-    $stmt = $conn->prepare("UPDATE campaign_details SET status = ?, updated_at = NOW() WHERE campaign_id = ?");
-    $stmt->bind_param('si', $status, $campaignId);
+    $stmt = $conn->prepare("UPDATE campaign_details SET status = ?, status_updated_by = ?, updated_at = NOW() WHERE campaign_id = ?");
+    $stmt->bind_param('sii', $status, $updatedBy, $campaignId);
     if (!$stmt->execute()) {
         $stmt->close();
         throw new RuntimeException('Failed to update campaign status.');
@@ -5970,6 +5986,67 @@ function setCampaignStatus(int $campaignId, string $status, int $updatedBy = 0):
     $stmt->bind_param('iii', $active, $updatedBy, $campaignId);
     $ok = $stmt->execute();
     $stmt->close();
+
+    if ($ok && $status === 'Pause') {
+        $userName = 'System';
+        if ($updatedBy > 0) {
+            $stmtU = $conn->prepare("SELECT full_name, username FROM users WHERE id = ? LIMIT 1");
+            if ($stmtU) {
+                $stmtU->bind_param('i', $updatedBy);
+                $stmtU->execute();
+                $u = $stmtU->get_result()->fetch_assoc();
+                $stmtU->close();
+                if ($u) $userName = $u['full_name'] ?: $u['username'];
+            }
+        }
+        $campName = 'Campaign';
+        $stmtC = $conn->prepare("SELECT name FROM campaigns WHERE id = ? LIMIT 1");
+        if ($stmtC) {
+            $stmtC->bind_param('i', $campaignId);
+            $stmtC->execute();
+            $c = $stmtC->get_result()->fetch_assoc();
+            $stmtC->close();
+            if ($c) $campName = $c['name'];
+        }
+
+        // Notify admins and relevant users
+        $notifTitle = "Campaign Paused: $campName";
+        $notifBody = "The campaign has been paused by $userName.";
+        $linkUrl = "modules/campaigns/campaign-details?id=$campaignId";
+        
+        // Notify Admins
+        $stmtA = $conn->prepare("SELECT id FROM users WHERE role = 'admin' AND is_active = 1");
+        if ($stmtA) {
+            $stmtA->execute();
+            $resA = $stmtA->get_result();
+            while ($adm = $resA->fetch_assoc()) {
+                createNotificationSmart((int)$adm['id'], 'campaign.status_changed', $notifTitle, $notifBody, $linkUrl);
+            }
+            $stmtA->close();
+        }
+
+        // Notify Campaign Client
+        $stmtCl = $conn->prepare("SELECT client_id FROM campaign_details WHERE campaign_id = ? LIMIT 1");
+        if ($stmtCl) {
+            $stmtCl->bind_param('i', $campaignId);
+            $stmtCl->execute();
+            $clId = $stmtCl->get_result()->fetch_assoc()['client_id'] ?? 0;
+            $stmtCl->close();
+            if ($clId > 0) {
+                $stmtUCl = $conn->prepare("SELECT id FROM users WHERE client_id = ? AND is_active = 1 AND role IN ('client_admin', 'client_sdr')");
+                if ($stmtUCl) {
+                    $stmtUCl->bind_param('i', $clId);
+                    $stmtUCl->execute();
+                    $resUCl = $stmtUCl->get_result();
+                    while ($ucl = $resUCl->fetch_assoc()) {
+                        createNotificationSmart((int)$ucl['id'], 'campaign.status_changed', $notifTitle, $notifBody, $linkUrl);
+                    }
+                    $stmtUCl->close();
+                }
+            }
+        }
+    }
+
     return $ok;
 }
 
@@ -6315,7 +6392,35 @@ function addTagToLead(int $leadId, string $tagName, int $userId, string $note = 
     if ($ok) {
         $meta = ['tag' => $tagName];
         if ($note !== '') $meta['note'] = $note;
-        if ($stage !== '') $meta['stage'] = $stage;
+        if ($stage !== '') {
+            $meta['stage'] = $stage;
+            // Sync Stage with Client Delivery Status if it matches one of the valid statuses
+            $validStatuses = function_exists('getClientDeliveryStatuses') ? getClientDeliveryStatuses() : ['Pending', 'Delivered', 'Accepted', 'Rejected', 'TBD(To be discussed)', 'In Progress'];
+            $normalizedStage = function_exists('normalizeClientDeliveryStatus') ? normalizeClientDeliveryStatus($stage) : $stage;
+            
+            $isMatch = false;
+            foreach ($validStatuses as $vs) {
+                if (strtolower($stage) === strtolower($vs)) {
+                    $isMatch = true;
+                    $normalizedStage = $vs;
+                    break;
+                }
+            }
+            
+            if ($isMatch) {
+                $stmtS = $conn->prepare("UPDATE leads SET client_delivery_status = ? WHERE id = ?");
+                if ($stmtS) {
+                    $stmtS->bind_param('si', $normalizedStage, $leadId);
+                    if ($stmtS->execute()) {
+                        logLeadActivity($leadId, $userId, 'qa_updated', [
+                            'client_delivery_status' => $normalizedStage,
+                            'qa_client_comment' => 'Status updated via Stage change (' . $stage . ')'
+                        ]);
+                    }
+                    $stmtS->close();
+                }
+            }
+        }
         logLeadActivity($leadId, $userId, 'lead_tag_added', $meta);
     }
     return $ok;
@@ -7322,6 +7427,7 @@ function getCampaignOverviewByStatus($status = null, $dateFrom = null, $dateTo =
             d.client_code,
             cl.name AS client_name,
             d.status,
+            d.status_updated_by,
             d.campaign_type,
             d.pacing_type,
             d.start_date,
@@ -7544,7 +7650,8 @@ function updateCampaignMetrics(int $campaignId, array $metrics, int $updatedBy):
 function getAllCampaignsBasic(): array {
     $conn = getDbConnection();
     $sql = "
-        SELECT c.id, c.name, d.code, d.status 
+        SELECT c.id, c.name, d.code, d.status, d.status_updated_by,
+               (SELECT full_name FROM users WHERE id = d.status_updated_by LIMIT 1) AS status_updated_by_name
         FROM campaigns c 
         JOIN campaign_details d ON c.id = d.campaign_id 
         ORDER BY c.name
@@ -8122,7 +8229,20 @@ function getLeads(array $filters = [], int $perPage = 25, int $page = 1): array 
     if (!empty($filters['date_from'])) { $where[] = 'l.created_at >= ?'; $params[] = $filters['date_from'].' 00:00:00'; $types .= 's'; }
     if (!empty($filters['date_to'])) { $where[] = 'l.created_at <= ?'; $params[] = $filters['date_to'].' 23:59:59'; $types .= 's'; }
     if (!empty($filters['qa_status'])) { $where[] = 'l.qa_status = ?'; $params[] = normalizeQaStatus($filters['qa_status']); $types .= 's'; }
-    if (!empty($filters['client_delivery_status'])) { $where[] = 'l.client_delivery_status = ?'; $params[] = normalizeClientDeliveryStatus($filters['client_delivery_status']); $types .= 's'; }
+    if (!empty($filters['client_delivery_status'])) {
+        if (is_array($filters['client_delivery_status'])) {
+            $vals = array_values(array_filter(array_map('strval', $filters['client_delivery_status'])));
+            if (!empty($vals)) {
+                $in = implode(',', array_fill(0, count($vals), '?'));
+                $where[] = "l.client_delivery_status IN ($in)";
+                foreach ($vals as $v) { $params[] = normalizeClientDeliveryStatus($v); $types .= 's'; }
+            }
+        } else {
+            $where[] = 'l.client_delivery_status = ?';
+            $params[] = normalizeClientDeliveryStatus($filters['client_delivery_status']);
+            $types .= 's';
+        }
+    }
     if (!empty($filters['form_done'])) { $where[] = 'l.form_done = ?'; $params[] = normalizeFormDone($filters['form_done']); $types .= 's'; }
     if (!empty($filters['form_filled'])) { $where[] = 'l.form_done = ?'; $params[] = normalizeFormDone($filters['form_filled']); $types .= 's'; }
     if (!empty($filters['tag_id'])) {
@@ -8218,7 +8338,20 @@ function getLeadsNoPagination(array $filters = []): array {
     if (!empty($filters['date_from'])) { $where[] = 'l.created_at >= ?'; $params[] = $filters['date_from'].' 00:00:00'; $types .= 's'; }
     if (!empty($filters['date_to'])) { $where[] = 'l.created_at <= ?'; $params[] = $filters['date_to'].' 23:59:59'; $types .= 's'; }
     if (!empty($filters['qa_status'])) { $where[] = 'l.qa_status = ?'; $params[] = normalizeQaStatus($filters['qa_status']); $types .= 's'; }
-    if (!empty($filters['client_delivery_status'])) { $where[] = 'l.client_delivery_status = ?'; $params[] = normalizeClientDeliveryStatus($filters['client_delivery_status']); $types .= 's'; }
+    if (!empty($filters['client_delivery_status'])) {
+        if (is_array($filters['client_delivery_status'])) {
+            $vals = array_values(array_filter(array_map('strval', $filters['client_delivery_status'])));
+            if (!empty($vals)) {
+                $in = implode(',', array_fill(0, count($vals), '?'));
+                $where[] = "l.client_delivery_status IN ($in)";
+                foreach ($vals as $v) { $params[] = normalizeClientDeliveryStatus($v); $types .= 's'; }
+            }
+        } else {
+            $where[] = 'l.client_delivery_status = ?';
+            $params[] = normalizeClientDeliveryStatus($filters['client_delivery_status']);
+            $types .= 's';
+        }
+    }
     if (!empty($filters['form_done'])) { $where[] = 'l.form_done = ?'; $params[] = normalizeFormDone($filters['form_done']); $types .= 's'; }
     if (!empty($filters['form_filled'])) { $where[] = 'l.form_done = ?'; $params[] = normalizeFormDone($filters['form_filled']); $types .= 's'; }
     if (!empty($filters['tag_id'])) {

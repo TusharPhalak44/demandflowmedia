@@ -25,6 +25,7 @@ if ($clientId <= 0 && !isAdmin()) {
 }
 
 $conn = getDbConnection();
+ensureCampaignDetailsColumns();
 $isClientAdmin = hasRole('client_admin') || isAdmin();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array((string)$_POST['action'], ['update_status','assign_campaign_sdr'], true)) {
     header('Content-Type: application/json');
@@ -145,7 +146,8 @@ $pages = max(1, (int)ceil($total / $perPage));
 
 $sql = "SELECT c.id, c.name, d.code, d.status, d.start_date, d.end_date, d.total_leads,
                d.delivery_format, d.campaign_type, d.pacing_type, d.pacing_count, d.instruction,
-               d.cpl, d.cpl_currency, d.cpc,
+               d.cpl, d.cpl_currency, d.cpc, d.status_updated_by,
+               (SELECT full_name FROM users WHERE id = d.status_updated_by LIMIT 1) AS status_updated_by_name,
                d.targeted_country, d.job_title, d.departments, d.seniority_levels, d.industries, d.employee_sizes, d.revenue_sizes,
                (SELECT COUNT(*) FROM leads l WHERE l.campaign_id = c.id AND l.client_delivery_status = 'Delivered') AS delivered_count,
                (SELECT u.id FROM campaign_user_assignments a JOIN users u ON u.id = a.user_id WHERE a.campaign_id = c.id AND u.client_id = d.client_id AND u.role = 'client_sdr' LIMIT 1) AS assigned_sdr_id,
@@ -271,7 +273,12 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                 <div class="text-muted small"><?php echo htmlspecialchars((string)$r['start_date']); ?> – <?php echo htmlspecialchars((string)$r['end_date']); ?></div>
               </td>
               <td class="text-muted small"><?php echo htmlspecialchars($r['code'] ?? ''); ?></td>
-              <td><span class="badge <?php echo htmlspecialchars($statusCls); ?> border"><?php echo htmlspecialchars($statusVal); ?></span></td>
+              <td>
+                <span class="badge <?php echo htmlspecialchars($statusCls); ?> border"><?php echo htmlspecialchars($statusVal); ?></span>
+                <?php if ($statusVal === 'Pause' && !empty($r['status_updated_by_name'])): ?>
+                  <div class="x-small text-muted mt-1" style="font-size: 0.7rem;">by <?php echo htmlspecialchars($r['status_updated_by_name']); ?></div>
+                <?php endif; ?>
+              </td>
               <td class="text-end font-monospace"><?php echo number_format($A); ?></td>
               <td class="text-end font-monospace text-success"><?php echo number_format($D); ?></td>
               <td class="text-nowrap">

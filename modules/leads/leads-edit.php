@@ -726,8 +726,9 @@ $agents = getAgents();
                     <div class="mb-3">
                         <label for="client_delivery_status_select" class="form-label small text-muted text-uppercase fw-bold">Client Delivery Status</label>
                         <select class="form-select" id="client_delivery_status_select" name="client_delivery_status" required>
-                            <option value="Pending">Pending</option>
-                            <option value="Delivered">Delivered</option>
+                            <?php foreach (getClientDeliveryStatuses() as $v): ?>
+                                <option value="<?php echo htmlspecialchars($v); ?>"><?php echo htmlspecialchars($v); ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     

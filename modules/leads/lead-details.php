@@ -64,7 +64,7 @@ if (isClient() && !isAdmin()) {
         exit;
     }
     $cds = normalizeClientDeliveryStatus((string)($lead['client_delivery_status'] ?? 'Pending'));
-    if ($cds !== 'Delivered') {
+    if ($cds === 'Pending') {
         http_response_code(403);
         echo 'Access denied';
         exit;
@@ -127,6 +127,11 @@ if ($canSeeTimeline && $lid > 0) {
         $stmt->execute();
         $activityRows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
         $stmt->close();
+        foreach ($activityRows as &$ar) {
+            $ar['meta'] = !empty($ar['meta_json']) ? json_decode((string)$ar['meta_json'], true) : [];
+            if (!is_array($ar['meta'])) $ar['meta'] = [];
+        }
+        unset($ar);
     }
 }
 
@@ -586,9 +591,9 @@ foreach ($schemaFields as $f) {
                                 <label class="form-label small text-muted mb-1">Client Delivery</label>
                                 <?php $cds = normalizeClientDeliveryStatus((string)($lead['client_delivery_status'] ?? 'Pending')); ?>
                                 <select class="form-select form-select-sm" name="client_delivery_status">
-                                    <?php foreach (['Pending' => 'Pending', 'Delivered' => 'Delivered'] as $v => $lbl): ?>
+                                    <?php foreach (getClientDeliveryStatuses() as $v): ?>
                                         <option value="<?php echo htmlspecialchars($v); ?>" <?php echo $cds === normalizeClientDeliveryStatus($v) ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($lbl); ?>
+                                            <?php echo htmlspecialchars($v); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -658,6 +663,9 @@ foreach ($schemaFields as $f) {
                                     <tr>
                                         <th style="width: 160px;">When</th>
                                         <th>Action</th>
+                                        <th>Stage</th>
+                                        <th>Tag</th>
+                                        <th>Note</th>
                                         <th style="width: 220px;">By</th>
                                     </tr>
                                 </thead>
@@ -668,11 +676,37 @@ foreach ($schemaFields as $f) {
                                             $action = (string)($ar['action'] ?? '');
                                             $by = (string)($ar['user_name'] ?? '');
                                             $role = (string)($ar['user_role'] ?? '');
+                                            $meta = (array)($ar['meta'] ?? []);
+                                            
+                                            $stage = (string)($meta['stage'] ?? '');
+                                            $tag = (string)($meta['tag'] ?? ($meta['tag_name'] ?? ''));
+                                            $note = (string)($meta['note'] ?? ($meta['comment'] ?? ''));
+                                            
+                                            $label = $action;
+                                            if ($action === 'lead_tag_added') $label = 'Tag Added';
+                                            elseif ($action === 'lead_tag_removed') $label = 'Tag Removed';
+                                            elseif ($action === 'lead_tag_edited') $label = 'Tag Edited';
+                                            elseif ($action === 'lead_created') $label = 'Lead Created';
+                                            elseif ($action === 'qa_updated') $label = 'QA Updated';
+                                            elseif ($action === 'form_submission_saved') $label = 'Form Saved';
+                                            elseif ($action === 'lead_assigned') $label = 'Lead Assigned';
+                                            else $label = str_replace('_', ' ', ucfirst($action));
                                         ?>
                                         <tr>
                                             <td class="text-muted small"><?php echo htmlspecialchars($when !== '' ? date('d M Y H:i', strtotime($when)) : ''); ?></td>
-                                            <td class="fw-semibold"><?php echo htmlspecialchars($action); ?></td>
-                                            <td class="text-muted"><?php echo htmlspecialchars(trim($by . ($role !== '' ? (' · ' . $role) : ''))); ?></td>
+                                            <td class="fw-semibold small"><?php echo htmlspecialchars($label); ?></td>
+                                            <td class="text-muted small"><?php echo htmlspecialchars($stage ?: '—'); ?></td>
+                                            <td class="small"><?php echo htmlspecialchars($tag ?: '—'); ?></td>
+                                            <td class="text-muted small">
+                                                <?php if ($note !== ''): ?>
+                                                    <span class="d-inline-block text-truncate" style="max-width: 250px;" title="<?php echo htmlspecialchars($note); ?>">
+                                                        <?php echo htmlspecialchars($note); ?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    —
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="text-muted small"><?php echo htmlspecialchars(trim($by . ($role !== '' ? (' · ' . $role) : ''))); ?></td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>

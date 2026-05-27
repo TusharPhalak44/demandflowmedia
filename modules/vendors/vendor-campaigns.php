@@ -49,7 +49,8 @@ $total = (int)($stmt->get_result()->fetch_assoc()['cnt'] ?? 0);
 $stmt->close();
 $pages = max(1, (int)ceil($total / $perPage));
 
-$sql = "SELECT c.id, c.name, d.code, d.status, d.start_date, d.end_date, d.total_leads, m.vendor_cpl, m.vendor_cpl_currency, m.uploads_enabled
+$sql = "SELECT c.id, c.name, d.code, d.status, d.start_date, d.end_date, d.total_leads, m.vendor_cpl, m.vendor_cpl_currency, m.uploads_enabled,
+               d.status_updated_by, (SELECT full_name FROM users WHERE id = d.status_updated_by LIMIT 1) AS status_updated_by_name
         FROM campaigns c
         JOIN campaign_details d ON d.campaign_id = c.id
         JOIN vendor_campaign_map m ON m.campaign_id = c.id
@@ -130,7 +131,12 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                 <div class="text-muted small"><?php echo htmlspecialchars((string)$r['start_date']); ?> – <?php echo htmlspecialchars((string)$r['end_date']); ?></div>
               </td>
               <td class="text-muted small"><?php echo htmlspecialchars($r['code'] ?? ''); ?></td>
-              <td><span class="badge <?php echo ($r['status']==='Live'?'bg-success-subtle text-success':'bg-secondary-subtle text-secondary'); ?> border"><?php echo htmlspecialchars($r['status'] ?? ''); ?></span></td>
+              <td>
+                <span class="badge <?php echo ($r['status']==='Live'?'bg-success-subtle text-success':'bg-secondary-subtle text-secondary'); ?> border"><?php echo htmlspecialchars($r['status'] ?? ''); ?></span>
+                <?php if ($r['status'] === 'Pause' && !empty($r['status_updated_by_name'])): ?>
+                  <div class="x-small text-muted mt-1" style="font-size: 0.7rem;">by <?php echo htmlspecialchars($r['status_updated_by_name']); ?></div>
+                <?php endif; ?>
+              </td>
               <td><?php echo number_format((int)($r['total_leads'] ?? 0)); ?></td>
               <td><?php echo number_format((float)($r['vendor_cpl'] ?? 0), 2); ?> <span class="text-muted small"><?php echo htmlspecialchars($r['vendor_cpl_currency'] ?? ''); ?></span></td>
               <td><?php echo !empty($r['uploads_enabled']) ? '<span class="badge bg-success-subtle text-success border">Enabled</span>' : '<span class="badge bg-secondary-subtle text-secondary border">Disabled</span>'; ?></td>

@@ -66,7 +66,7 @@ foreach ($campaigns as $c) {
     
     $stmt = $conn->prepare("
         SELECT 
-            SUM(CASE WHEN client_delivery_status = 'Delivered' THEN 1 ELSE 0 END) as delivered
+            SUM(CASE WHEN client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') THEN 1 ELSE 0 END) as delivered
         FROM leads 
         WHERE campaign_id = ?
     ");

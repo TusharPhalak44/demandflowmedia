@@ -62,8 +62,8 @@ if ($q !== '') {
 
 $sql = "SELECT c.id, c.name, c.active, d.code, d.client_code, d.status, d.cpl, d.cpl_currency,
         r.revenue, r.currency AS revenue_currency, r.updated_at,
-        SUM(CASE WHEN l.client_delivery_status = 'Delivered' AND l.created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS delivered_month,
-        SUM(CASE WHEN l.client_delivery_status = 'Delivered' AND l.created_at BETWEEN ? AND ? THEN COALESCE(d.cpl, 0) ELSE 0 END) AS generated_month
+        SUM(CASE WHEN l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS delivered_month,
+         SUM(CASE WHEN l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ? THEN COALESCE(d.cpl, 0) ELSE 0 END) AS generated_month
         FROM campaigns c
         LEFT JOIN campaign_details d ON d.campaign_id = c.id
         LEFT JOIN campaign_revenue r ON r.campaign_id = c.id

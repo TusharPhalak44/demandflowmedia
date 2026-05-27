@@ -13,6 +13,7 @@ $canOpsActions = isAdmin() || hasRole(['operations_director','operations_manager
 $canManageCampaigns = isAdmin() || isSalesDirector() || isSalesManager() || isClientAdmin() || hasRole(['director','manager_director','operations_director','operations_manager']);
 $canAssignVendors = isAdmin() || isSalesDirector() || isSalesManager() || hasRole(['director','manager_director','operations_director']);
 $canViewFinancials = isAdmin() || isSalesDirector() || isSalesManager();
+ensureCampaignDetailsColumns();
 $isSdr = isSDR();
 $isVendor = isVendor();
 $isClient = isClient();
@@ -108,6 +109,7 @@ if (!$canManageCampaigns && !$isVendor && !$isClient) {
 }
 
 $overviewRows = getCampaignOverviewByStatus($status ?: null, $dateFrom ?: null, $dateTo ?: null, $scopeCampaignIds);
+
 if ($isVendor) {
     $vendorId = (int)($currentUser['vendor_id'] ?? 0);
     $conn = getDbConnection();
@@ -167,6 +169,29 @@ if ($search !== '') {
             || (strpos(mb_strtolower($r['client_code'] ?? ''), $q) !== false)
             || (strpos(mb_strtolower($r['client_name'] ?? ''), $q) !== false);
     }));
+}
+
+// Fetch status update author names
+if (!empty($overviewRows)) {
+    $uids = array_values(array_filter(array_unique(array_map(fn($r) => (int)($r['status_updated_by'] ?? 0), $overviewRows))));
+    $authorMap = [];
+    if (!empty($uids)) {
+        $conn = getDbConnection();
+        $in = implode(',', array_fill(0, count($uids), '?'));
+        $stmt = $conn->prepare("SELECT id, full_name, username FROM users WHERE id IN ($in)");
+        $stmt->bind_param(str_repeat('i', count($uids)), ...$uids);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($u = $res->fetch_assoc()) {
+            $authorMap[(int)$u['id']] = $u['full_name'] ?: $u['username'];
+        }
+        $stmt->close();
+    }
+    foreach ($overviewRows as &$row) {
+        $sid = (int)($row['status_updated_by'] ?? 0);
+        $row['status_updated_by_name'] = $authorMap[$sid] ?? '';
+    }
+    unset($row);
 }
 
 $campaignIdsForStats = array_values(array_filter(array_map(fn($r) => (int)($r['id'] ?? 0), $overviewRows), fn($v) => $v > 0));
@@ -338,7 +363,12 @@ $srStart = 1;
                                         $statusCls = $statusMap[$statusVal] ?? 'secondary';
                                         $statusTextCls = ($statusVal === 'Pause') ? 'text-dark' : '';
                                     ?>
-                                    <td><span class="badge bg-<?php echo $statusCls; ?> <?php echo $statusTextCls; ?>"><?php echo htmlspecialchars($statusVal); ?></span></td>
+                                    <td>
+                                        <span class="badge bg-<?php echo $statusCls; ?> <?php echo $statusTextCls; ?>"><?php echo htmlspecialchars($statusVal); ?></span>
+                                        <?php if ($statusVal === 'Pause' && !empty($r['status_updated_by_name'])): ?>
+                                            <div class="x-small text-muted mt-1" style="font-size: 0.7rem;">by <?php echo htmlspecialchars($r['status_updated_by_name']); ?></div>
+                                        <?php endif; ?>
+                                    </td>
                                     <td><?php echo htmlspecialchars($r['start_date'] ?? ''); ?></td>
                                     <td><?php echo htmlspecialchars($r['end_date'] ?? ''); ?></td>
                                     <?php 

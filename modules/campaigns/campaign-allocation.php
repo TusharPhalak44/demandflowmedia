@@ -189,6 +189,11 @@ if ($rs) $allUsers = $rs->fetch_all(MYSQLI_ASSOC);
                                         <td class="text-center">
                                             <?php if ($c['status'] === 'Live' || $c['status'] === 'Active'): ?>
                                                 <span class="badge badge-live rounded-pill px-3">Live</span>
+                                            <?php elseif ($c['status'] === 'Pause'): ?>
+                                                <span class="badge badge-other rounded-pill px-3"><?php echo htmlspecialchars($c['status']); ?></span>
+                                                <?php if (!empty($c['status_updated_by_name'])): ?>
+                                                    <div class="x-small text-muted mt-1" style="font-size: 0.65rem;">by <?php echo htmlspecialchars($c['status_updated_by_name']); ?></div>
+                                                <?php endif; ?>
                                             <?php else: ?>
                                                 <span class="badge badge-other rounded-pill px-3"><?php echo htmlspecialchars($c['status']); ?></span>
                                             <?php endif; ?>
