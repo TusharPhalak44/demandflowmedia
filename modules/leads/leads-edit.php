@@ -76,11 +76,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     'linkedin','linkedin_link','linkedin_url','linkedin_profile','linkedinprofile',
                     'phone','contact_phone','phone_number','mobile','mobile_number','contact_number',
                     'company','company_name','companyname','organization','organisation','account_name',
-                    'company_linkedin','company_linkedin_url','companylinkedin','companylinkedinurl',
-                    'company_size','employee_size','employee_sizes','employees','headcount',
-                    'country','country_name','location',
+                    'company_linkedin','company_linkedin_link','company_linkedin_url','companylinkedin','companylinkedinurl',
                     'industry',
-                    'implementation_timeline','software_implementation_timeline','timeline',
                     'lead_comment','comment','notes',
                 ]), true);
                 $form = getFormById($formId) ?: getFormForCampaign($campaignForForm);

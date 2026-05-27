@@ -1,0 +1,9 @@
+[26-May-2026 21:57:30 Europe/Berlin] PHP Warning:  Undefined variable $conn in C:\xampp\htdocs\CRM\demandflowmedia\modules\leads\get_lead_details.php on line 30
+[26-May-2026 21:57:30 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function prepare() on null in C:\xampp\htdocs\CRM\demandflowmedia\modules\leads\get_lead_details.php:30
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CRM\demandflowmedia\modules\leads\get_lead_details.php on line 30
+[26-May-2026 22:32:44 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function fetch_assoc() on bool in C:\xampp\htdocs\CRM\check_db.php:11
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CRM\check_db.php on line 11

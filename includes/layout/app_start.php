@@ -85,6 +85,11 @@ elseif (function_exists('isClient') && isClient()) $layoutDashUrl = $layoutModul
       };
       window.__appLoader = { show, hide };
 
+      // Hide preloader as soon as DOM is ready to improve perceived speed
+      document.addEventListener('DOMContentLoaded', hide);
+      // Fallback: hide if window.load takes too long (e.g. slow assets)
+      window.setTimeout(hide, 2000);
+
       document.addEventListener('DOMContentLoaded', () => {
         const aHandler = (e) => {
           if (e.defaultPrevented) return;

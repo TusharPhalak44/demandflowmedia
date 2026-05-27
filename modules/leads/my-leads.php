@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $editMessage = 'You can only edit your own leads.';
             $editMessageClass = 'danger';
         } else {
+            $cf = $_POST['cf'] ?? [];
             $update = [
                 'first_name' => $_POST['first_name'] ?? null,
                 'last_name' => $_POST['last_name'] ?? null,
@@ -41,11 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 'email' => $_POST['email'] ?? null,
                 'linkedin_link' => $_POST['linkedin_link'] ?? null,
                 'contact_phone' => $_POST['contact_phone'] ?? null,
-                'industry' => $_POST['industry'] ?? null,
+                'industry' => $_POST['industry'] ?? ($cf['industry'] ?? null),
                 'company_linkedin' => $_POST['company_linkedin'] ?? null,
                 'company_name' => $_POST['company_name'] ?? null,
-                'company_size' => $_POST['company_size'] ?? null,
-                'country' => $_POST['country'] ?? null,
+                'company_size' => $_POST['company_size'] ?? ($cf['company_size'] ?? ($cf['employee_size'] ?? null)),
+                'country' => $_POST['country'] ?? ($cf['country'] ?? null),
                 'lead_comment' => $_POST['lead_comment'] ?? null,
                 // Reset QA-related fields
                 'qa_status' => 'Pending',
@@ -74,10 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     'phone','contact_phone','phone_number','mobile','mobile_number','contact_number',
                     'company','company_name','companyname','organization','organisation','account_name',
                     'company_linkedin','company_linkedin_link','company_linkedin_url','companylinkedin','companylinkedinurl',
-                    'company_size','employee_size','employee_sizes','employees','headcount',
-                    'country','country_name','location',
                     'industry',
-                    'implementation_timeline','software_implementation_timeline','timeline',
                     'lead_comment','comment','notes',
                 ]), true);
                 $form = getFormById($formId) ?: getFormForCampaign($campaignId);
@@ -96,7 +94,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $editMessage = 'Invalid Country. Allowed: ' . implode(' | ', $selectMap['country']);
                     $editMessageClass = 'danger';
                 }
-                $cf = $_POST['cf'] ?? [];
                 $cfFiles = $_FILES['cffile'] ?? [];
                 $data = [];
                 foreach ($fields as $f) {
@@ -146,17 +143,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         }
                     }
                 }
-                $companyWebsite = trim((string)($_POST['company_website'] ?? ''));
+                $companyWebsite = trim((string)($_POST['company_website'] ?? ($cf['company_website'] ?? ($cf['website'] ?? ''))));
                 if ($companyWebsite !== '') {
                     $data['company_website'] = $companyWebsite;
+                    $update['company_website'] = $companyWebsite;
                 }
-                $timelineAnswer = trim((string)($_POST['software_implementation_timeline'] ?? ''));
+                $timelineAnswer = trim((string)($_POST['software_implementation_timeline'] ?? ($cf['software_implementation_timeline'] ?? ($cf['implementation_timeline'] ?? ''))));
                 if ($timelineAnswer !== '') {
                     if (!empty($selectMap['software_implementation_timeline']) && !valueInAllowedOptions($timelineAnswer, $selectMap['software_implementation_timeline'])) {
                         $editMessage = 'Invalid Implementation Timeline. Allowed: ' . implode(' | ', $selectMap['software_implementation_timeline']);
                         $editMessageClass = 'danger';
                     } else {
                         $data['software_implementation_timeline'] = $timelineAnswer;
+                        $update['software_implementation_timeline'] = $timelineAnswer;
                     }
                 }
                 $li = trim((string)($_POST['linkedin_link'] ?? ''));
@@ -415,7 +414,7 @@ $campaigns = getCampaigns();
 
     <!-- Edit Lead Modal (Simplified for Agents) -->
     <div class="modal fade" id="editLeadModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header">
                     <h5 class="modal-title">Edit Lead</h5>
@@ -434,7 +433,7 @@ $campaigns = getCampaigns();
     document.getElementById('editLeadModal')?.addEventListener('show.bs.modal', function (event) {
         const button = event.relatedTarget;
         const leadId = button.getAttribute('data-lead-id');
-        fetch('details?id=' + encodeURIComponent(leadId) + '&edit=1&format=html', { 
+        fetch('details?id=' + encodeURIComponent(leadId) + '&edit=1&format=html&embed=1', { 
             credentials: 'same-origin',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'

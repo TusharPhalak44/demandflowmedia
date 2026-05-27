@@ -2613,6 +2613,8 @@ function getAssignedCampaignIdsForUser(int $userId): array {
 }
 
 function getQaVisibleCampaignIdsForUser(int $userId, string $role): ?array {
+    static $cache = [];
+    if (isset($cache[$userId])) return $cache[$userId];
     $role = function_exists('normalizeRole') ? normalizeRole($role) : $role;
     if ($role === 'admin') return null;
     if (in_array($role, ['qa_director', 'qa_manager'], true)) return null;
@@ -2627,6 +2629,7 @@ function getQaVisibleCampaignIdsForUser(int $userId, string $role): ?array {
         if ($cid > 0) $out[$cid] = true;
     }
     $stmt->close();
+    $cache[$userId] = $out;
     return $out;
 }
 
@@ -3042,8 +3045,10 @@ function updateLead(int $id, array $data): bool {
         'contact_phone',
         'industry',
         'company_name',
+        'company_website',
         'company_size',
         'country',
+        'software_implementation_timeline',
         'recording_path',
         'ip_address',
         'qa_status',
@@ -3865,6 +3870,8 @@ function pushLeadToGoogleSheet(string $campaignName, array $leadData): bool {
  * This should be run sparingly (e.g., once per session or on app update).
  */
 function ensureDatabaseSchema(): void {
+    static $verified = false;
+    if ($verified) return;
     $conn = getDbConnection();
     $hasColumn = function(string $table, string $column) use ($conn): bool {
         $stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
@@ -4390,8 +4397,11 @@ function ensureDatabaseSchema(): void {
         data_json MEDIUMTEXT NOT NULL,
         INDEX idx_form(form_id),
         INDEX idx_campaign(campaign_id),
-        INDEX idx_lead(lead_id)
+        INDEX idx_lead(lead_id),
+        INDEX idx_lead_campaign(lead_id, campaign_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $addIndex('form_submissions', 'idx_lead_campaign', 'lead_id, campaign_id');
 
     $conn->query("CREATE TABLE IF NOT EXISTS lead_files (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -4960,6 +4970,17 @@ function ensureDatabaseSchema(): void {
     if (!$hasColumn('sales_client_ownership', 'assigned_by')) {
         @$conn->query("ALTER TABLE sales_client_ownership ADD COLUMN assigned_by INT NULL AFTER assigned_at");
     }
+
+    // Performance indexes
+    $addIndex('users', 'idx_role', 'role');
+    $addIndex('users', 'idx_active', 'is_active');
+    $addIndex('leads', 'idx_lead_id_search', 'lead_id');
+    $addIndex('leads', 'idx_email_search', 'email');
+    $addIndex('leads', 'idx_company_search', 'company_name');
+    $addIndex('leads', 'idx_name_search', 'first_name, last_name');
+    $addIndex('leads', 'idx_qa_queue', 'qa_status, created_at');
+
+    $verified = true;
 }
 
 function createNotification(int $userId, string $type, string $title, ?string $body = null, ?string $linkUrl = null): bool {
@@ -5168,8 +5189,12 @@ function getCampaignAssignedUserIds(int $campaignId, array $tables = ['operation
 }
 
 function getUserAssignedCampaignIds(int $userId, array $tables = ['operations_campaign_assignments','qa_campaign_assignments','campaign_user_assignments']): array {
+    static $cache = [];
     $userId = (int)$userId;
     if ($userId <= 0) return [];
+    $cacheKey = $userId . '_' . implode(',', $tables);
+    if (isset($cache[$cacheKey])) return $cache[$cacheKey];
+    
     $conn = getDbConnection();
     $ids = [];
     foreach ($tables as $t) {
@@ -5187,7 +5212,9 @@ function getUserAssignedCampaignIds(int $userId, array $tables = ['operations_ca
             if ($cid > 0) $ids[$cid] = true;
         }
     }
-    return array_keys($ids);
+    $result = array_keys($ids);
+    $cache[$cacheKey] = $result;
+    return $result;
 }
 
 function notifyCampaignEndWarningsForUser(int $userId): void {
@@ -7551,6 +7578,8 @@ function getActiveCampaignsBasic(): array {
 }
 
 function ensureTeamSchema(): void {
+    static $verified = false;
+    if ($verified) return;
     $conn = getDbConnection();
     @$conn->query("CREATE TABLE IF NOT EXISTS teams (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -7584,20 +7613,26 @@ function ensureTeamSchema(): void {
         INDEX (campaign_id),
         INDEX (team_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $verified = true;
 }
 
 function ensureAppSettingsSchema(): void {
+    static $verified = false;
+    if ($verified) return;
     $conn = getDbConnection();
     @$conn->query("CREATE TABLE IF NOT EXISTS app_settings (
         setting_key VARCHAR(191) NOT NULL PRIMARY KEY,
         setting_value TEXT NULL,
         updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $verified = true;
 }
 
 function getAppSetting(string $key, ?string $default = null): ?string {
+    static $cache = [];
     $key = trim($key);
     if ($key === '') return $default;
+    if (array_key_exists($key, $cache)) return $cache[$key];
     ensureAppSettingsSchema();
     $conn = getDbConnection();
     $stmt = $conn->prepare("SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1");
@@ -7606,10 +7641,9 @@ function getAppSetting(string $key, ?string $default = null): ?string {
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc() ?: null;
     $stmt->close();
-    if (!$row) return $default;
-    $val = $row['setting_value'];
-    if ($val === null) return $default;
-    return (string)$val;
+    $val = $row ? $row['setting_value'] : $default;
+    $cache[$key] = $val;
+    return $val;
 }
 
 function setAppSetting(string $key, ?string $value): bool {
@@ -7791,6 +7825,9 @@ function getTeamCampaignIds(array $teamIds): array {
 }
 
 function getTeamVisibleCampaignIdsForUser(int $userId, ?array $assignedMap = null): ?array {
+    static $cache = [];
+    $cacheKey = $userId . '_' . ($assignedMap === null ? 'null' : md5(serialize($assignedMap)));
+    if (isset($cache[$cacheKey])) return $cache[$cacheKey];
     $userId = (int)$userId;
     if ($userId <= 0) return $assignedMap;
     if (isAdmin() || isDirector()) return null;
@@ -7808,6 +7845,7 @@ function getTeamVisibleCampaignIdsForUser(int $userId, ?array $assignedMap = nul
         $cid = (int)$cid;
         if ($cid > 0) $out[$cid] = true;
     }
+    $cache[$cacheKey] = $out;
     return $out;
 }
 

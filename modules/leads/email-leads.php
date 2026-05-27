@@ -476,19 +476,19 @@ include __DIR__ . '/../../includes/layout/app_start.php';
             </div>
 
             <div class="col-md-6">
-              <label class="form-label d-flex justify-content-between"><span>Email</span><button type="button" class="btn btn-link btn-sm p-0" data-copy="#m_email">Copy</button></label>
+              <label class="form-label d-flex justify-content-between"><span>Email</span><button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-copy="#m_email" title="Copy Email"><i class="bi bi-copy"></i></button></label>
               <input class="form-control form-control-sm" name="email" id="m_email">
             </div>
             <div class="col-md-6">
-              <label class="form-label d-flex justify-content-between"><span>LinkedIn</span><button type="button" class="btn btn-link btn-sm p-0" data-copy="#m_linkedin">Copy</button></label>
+              <label class="form-label d-flex justify-content-between"><span>LinkedIn</span><button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-copy="#m_linkedin" title="Copy LinkedIn"><i class="bi bi-copy"></i></button></label>
               <input class="form-control form-control-sm" name="linkedin_link" id="m_linkedin">
             </div>
             <div class="col-md-6">
-              <label class="form-label d-flex justify-content-between"><span>Phone</span><button type="button" class="btn btn-link btn-sm p-0" data-copy="#m_phone">Copy</button></label>
+              <label class="form-label d-flex justify-content-between"><span>Phone</span><button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-copy="#m_phone" title="Copy Phone"><i class="bi bi-copy"></i></button></label>
               <input class="form-control form-control-sm" name="contact_phone" id="m_phone">
             </div>
             <div class="col-md-6">
-              <label class="form-label d-flex justify-content-between"><span>Company</span><button type="button" class="btn btn-link btn-sm p-0" data-copy="#m_company">Copy</button></label>
+              <label class="form-label d-flex justify-content-between"><span>Company</span><button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-copy="#m_company" title="Copy Company"><i class="bi bi-copy"></i></button></label>
               <input class="form-control form-control-sm" name="company_name" id="m_company">
             </div>
 
@@ -586,7 +586,19 @@ document.addEventListener('click', async (e) => {
   const sel = btn.getAttribute('data-copy');
   const el = document.querySelector(sel);
   if (!el) return;
-  await copyText(el.value || '');
+  
+  const val = el.value || '';
+  if (val === '') return;
+  
+  const ok = await copyText(val);
+  if (ok) {
+    const icon = btn.querySelector('i');
+    if (icon) {
+      const oldClass = icon.className;
+      icon.className = 'bi bi-check2 text-success';
+      setTimeout(() => { icon.className = oldClass; }, 1500);
+    }
+  }
 });
 </script>
 

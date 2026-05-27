@@ -479,12 +479,15 @@ function getCustomRolesConfig(): array {
 }
 
 function getAccessRolePermissionsConfig(): ?array {
+    static $cache = null;
+    if ($cache !== null) return $cache;
     if (!function_exists('getAppSetting')) return null;
     $raw = (string)(getAppSetting('access.role_permissions', '') ?? '');
     $raw = trim($raw);
     if ($raw === '') return null;
     $data = json_decode($raw, true);
     if (!is_array($data)) return null;
+    $cache = $data;
     return $data;
 }
 

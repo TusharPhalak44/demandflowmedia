@@ -4,9 +4,19 @@ require_once __DIR__ . '/../../includes/functions.php';
 
 $allowedRoles = ['admin', 'director', 'manager_director', 'operations_director', 'operations_manager', 'operations_agent', 'qa', 'qa_agent', 'qa_manager', 'qa_director', 'agent', 'form_filler', 'email_marketing_executive', 'email_marketing_agent', 'email_marketing_manager', 'email_marketing_director'];
 requireRole($allowedRoles);
-ensureDatabaseSchema();
+
+// Release session lock early to prevent blocking other requests
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
+// Only ensure schema if not an AJAX request to speed up modal loading
+if (!isAjaxRequest()) {
+    ensureDatabaseSchema();
+}
 
 $currentUser = getCurrentUser();
+$conn = getDbConnection();
 
 $leadId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $leadCode = isset($_GET['lead_id']) ? trim($_GET['lead_id']) : '';
@@ -16,14 +26,29 @@ if ($leadId <= 0 && $leadCode === '') {
     exit;
 }
 
-$lead = $leadId > 0 ? getLeadById($leadId) : getLeadByCode($leadCode);
+if ($leadId > 0) {
+    // Check if we have a campaign ID to use the dynamic lead table
+    $stmt = $conn->prepare("SELECT campaign_id FROM leads WHERE id = ? LIMIT 1");
+    $stmt->bind_param("i", $leadId);
+    $stmt->execute();
+    $cRow = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    
+    $campaignId = (int)($cRow['campaign_id'] ?? 0);
+    if ($campaignId > 0) {
+        $lead = getLeadByIdDynamic($leadId, $campaignId);
+    } else {
+        $lead = getLeadById($leadId);
+    }
+} else {
+    $lead = getLeadByCode($leadCode);
+}
 if (!$lead) {
     http_response_code(404);
     echo 'Lead not found';
     exit;
 }
 
-$conn = getDbConnection();
 $leadId = (int)($lead['id'] ?? $leadId);
 
 $currentRole = (string)($currentUser['role'] ?? '');
@@ -45,22 +70,6 @@ if (hasRole(['form_filler','email_marketing_executive','email_marketing_agent','
 }
 
 $lead = enrichLeadRow($lead);
-
-$activity = [];
-$stmt = $conn->prepare("
-    SELECT la.*, u.full_name AS user_name, u.role AS user_role
-    FROM lead_activity la
-    LEFT JOIN users u ON la.actor_id = u.id
-    WHERE la.lead_id = ?
-    ORDER BY la.created_at DESC
-    LIMIT 50
-");
-if ($stmt) {
-    $stmt->bind_param('i', $leadId);
-    $stmt->execute();
-    $activity = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
-    $stmt->close();
-}
 
 $campaignId = (int)($lead['campaign_id'] ?? 0);
 
@@ -145,14 +154,54 @@ $leadDbId = (int)($lead['id'] ?? 0);
 $submission = ($campaignId > 0 && $leadDbId > 0) ? getLatestFormSubmissionForLead($leadDbId, $campaignId) : null;
 $formData = is_array($submission['data'] ?? null) ? $submission['data'] : [];
 
-$linkedin = trim((string)(extractSubmissionValue($formData, ['linkedin_link','linkedin_url','linkedin_profile','prospect_linkedin','prospect_linkedin_link','prospect_linkedin_url','prospect_linkedin_profile']) ?? ''));
-if ($linkedin === '') $linkedin = trim((string)($lead['linkedin_link'] ?? ''));
+// Pre-index normalized keys to speed up link extraction and form picking
+$indexedData = [];
+foreach ($formData as $k => $v) {
+    $nk = normalizeSubmissionKey((string)$k);
+    if ($nk !== '') $indexedData[$nk] = $v;
+}
 
-$companyLinkedin = trim((string)(extractSubmissionValue($formData, ['company_linkedin','company_linkedin_url','company_linkedin_link','companylinkedin','companylinkedinurl']) ?? ''));
-if ($companyLinkedin === '') $companyLinkedin = trim((string)($lead['company_linkedin'] ?? ''));
+$pickFrom = function(array $data, array $aliases): string {
+    foreach ($aliases as $a) {
+        if (array_key_exists($a, $data)) {
+            $val = $data[$a];
+            if ($val !== null && !is_array($val) && trim((string)$val) !== '') return trim((string)$val);
+        }
+        $na = normalizeSubmissionKey($a);
+        if ($na !== $a && array_key_exists($na, $data)) {
+            $val = $data[$na];
+            if ($val !== null && !is_array($val) && trim((string)$val) !== '') return trim((string)$val);
+        }
+    }
+    return '';
+};
 
-$companyWebsite = trim((string)(extractSubmissionValue($formData, ['company_website','website','domain','company_domain']) ?? ''));
-if ($companyWebsite === '') $companyWebsite = trim((string)($lead['company_domain'] ?? ''));
+$fastPick = function(array $aliases, string $fallback = '') use ($formData, $indexedData, $lead, $pickFrom): string {
+    // 1. Try exact/normalized aliases in formData
+    $val = $pickFrom($formData, $aliases);
+    if ($val !== '') return $val;
+    
+    // 2. Try normalized aliases in indexedData
+    $val = $pickFrom($indexedData, $aliases);
+    if ($val !== '') return $val;
+
+    // 3. Try aliases in the lead record itself
+    $val = $pickFrom($lead, $aliases);
+    if ($val !== '') return $val;
+
+    return trim((string)$fallback);
+};
+
+$linkedin = $fastPick(['linkedin_link','linkedin_url','linkedin_profile','prospect_linkedin','prospect_linkedin_link','prospect_linkedin_url','prospect_linkedin_profile','linkedin','linkedin_link_url']);
+$companyLinkedin = $fastPick(['company_linkedin','company_linkedin_url','company_linkedin_link','companylinkedin','companylinkedinurl','linkedin_company','company_li']);
+$companyWebsite = $fastPick(['company_website','website','domain','company_domain','company_website_url','company_url','company_website_link']);
+$phone = $fastPick(['contact_phone','phone','phone_number','mobile','mobile_number','contact_number','prospect_phone','phone_no','mobile_no']);
+$industry = $fastPick(['industry','company_industry','sector','business_type','company_sector']);
+$jobTitle = $fastPick(['job_title','jobtitle','title','designation','contact_job_title','role','position']);
+$email = $fastPick(['email','email_address','emailaddress','work_email','prospect_email','contact_email','primary_email']);
+$companyName = $fastPick(['company_name','company','companyname','organization','organisation','account_name','companyname','entity_name']);
+$firstName = $fastPick(['first_name','firstname','first','given_name','f_name','fname']);
+$lastName = $fastPick(['last_name','lastname','last','surname','family_name','l_name','lname']);
 
 // Helper to ensure external links have a protocol
 $ensureProtocol = function($url) {
@@ -169,8 +218,8 @@ $companyWebsite = $ensureProtocol($companyWebsite);
 
 if ($edit) {
     $postTo = $_GET['post_to'] ?? 'my-leads.php';
-    $embed = !empty($_GET['embed']);
-    $standalone = $embed ? false : true;
+    $embed = !empty($_GET['embed']) || isAjaxRequest();
+    $standalone = !$embed;
     $companySizeOptions = ['Myself Only','2-10','11-50','51-200','201-500','501-1,000','1,001-5,000','5,001-10,000','10,001+'];
     $countryOptions = ['United States','United Kingdom','Canada','Australia','Germany','France','India','Other'];
     $timelineOptions = ['0-3 Months','3-6 Months','6-9 Months','9-12 Months'];
@@ -204,28 +253,21 @@ if ($edit) {
         'phone','contact_phone','phone_number','mobile','mobile_number','contact_number',
         'company','company_name','companyname','organization','organisation','account_name',
         'company_linkedin','company_linkedin_link','company_linkedin_url','companylinkedin','companylinkedinurl',
-        'company_size','employee_size','employee_sizes','employees','headcount',
-        'country','country_name','location',
         'industry',
-        'implementation_timeline','software_implementation_timeline','timeline',
         'lead_comment','comment','notes',
     ]), true);
     $hideFilled = hasRole(['form_filler','email_marketing_executive','email_marketing_agent','email_marketing_manager','email_marketing_director']);
+    
     $leadVal = function($v): string {
         if ($v === null) return '';
         if (is_array($v)) return '';
         return trim((string)$v);
     };
-    $pick = function(array $aliases, string $fallback = '') use ($formData, $leadVal): string {
-        foreach ($aliases as $k) {
-            if (array_key_exists($k, $formData)) {
-                $v = $leadVal($formData[$k]);
-                if ($v !== '') return $v;
-            }
-        }
-        $fb = trim((string)$fallback);
-        return $fb;
+    
+    $pick = function(array $aliases, string $fallback = '') use ($fastPick): string {
+        return $fastPick($aliases, $fallback);
     };
+    
     $isFilled = function($v) use ($leadVal): bool {
         return $leadVal($v) !== '';
     };
@@ -257,48 +299,56 @@ if ($edit) {
                     </style>
                     <?php endif; ?>
 
-                    <div class="row g-4">
+                    <style>
+                        .x-small { font-size: 0.75rem; }
+                        .italic { font-style: italic; }
+                        .card-body { padding: 0.75rem !important; }
+                        .form-control-sm, .form-select-sm { font-size: 0.8rem; }
+                        .form-label { margin-bottom: 0.2rem; }
+                    </style>
+
+                    <div class="row g-3">
                         <div class="col-12">
-                            <div class="d-flex justify-content-between align-items-start">
+                            <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <div class="h4 mb-1"><?php echo htmlspecialchars($fullName ?: 'Lead'); ?></div>
-                                    <div class="text-muted">Lead ID: <?php echo htmlspecialchars($lead['lead_id'] ?? (string)($lead['id'] ?? '')); ?></div>
+                                    <div class="h5 mb-0 text-primary"><?php echo htmlspecialchars($fullName ?: 'Lead'); ?></div>
+                                    <div class="small text-muted">ID: <?php echo htmlspecialchars($lead['lead_id'] ?? (string)($lead['id'] ?? '')); ?></div>
                                 </div>
-                                <span class="badge bg-primary rounded-pill px-3 py-2"><?php echo htmlspecialchars($lead['campaign_name'] ?? ''); ?></span>
+                                <span class="badge bg-primary-subtle text-primary border rounded-pill px-3"><?php echo htmlspecialchars($lead['campaign_name'] ?? ''); ?></span>
                             </div>
                         </div>
 
                         <?php if ($hideFilled): ?>
                         <div class="col-12">
-                            <div class="form-check form-switch">
+                            <div class="form-check form-switch mb-0">
                                 <input class="form-check-input" type="checkbox" id="toggleFilledFields">
-                                <label class="form-check-label small text-muted" for="toggleFilledFields">Show already filled fields</label>
+                                <label class="form-check-label x-small text-muted" for="toggleFilledFields">Show already filled fields</label>
                             </div>
                         </div>
                         <?php endif; ?>
 
                         <?php if ($hideFilled): ?>
                         <div class="col-12">
-                            <div class="card border-0 bg-light">
-                                <div class="card-body">
-                                    <div class="fw-bold mb-3"><i class="bi bi-envelope me-1"></i> Email Status</div>
-                                    <div class="row g-3">
+                            <div class="card border-0 bg-light-subtle border-start border-4 border-info">
+                                <div class="card-body py-2">
+                                    <div class="small fw-bold mb-2"><i class="bi bi-envelope me-1"></i> Email Status</div>
+                                    <div class="row g-2">
                                         <?php
                                             $emailStatuses = ['Pending','Sent','Delivered','Opened','Bounced','Unsubscribed','No Response'];
                                             $emailStatusVal = (string)($lead['email_status'] ?? '');
                                             if ($emailStatusVal === '') $emailStatusVal = 'Pending';
                                         ?>
                                         <div class="col-md-4">
-                                            <label class="form-label small text-muted">Email Status</label>
-                                            <select class="form-select" name="email_status">
+                                            <label class="form-label x-small text-muted mb-1">Email Status</label>
+                                            <select class="form-select form-select-sm" name="email_status">
                                                 <?php foreach ($emailStatuses as $s): ?>
                                                     <option value="<?php echo htmlspecialchars($s); ?>" <?php echo $emailStatusVal === $s ? 'selected' : ''; ?>><?php echo htmlspecialchars($s); ?></option>
                                                 <?php endforeach; ?>
                                             </select>
                                         </div>
                                         <div class="col-md-8">
-                                            <label class="form-label small text-muted">Email Status Comment</label>
-                                            <input class="form-control" name="email_status_comment" value="<?php echo htmlspecialchars((string)($lead['email_status_comment'] ?? '')); ?>" placeholder="e.g. bounced reason, opened note">
+                                            <label class="form-label x-small text-muted mb-1">Email Status Comment</label>
+                                            <input class="form-control form-control-sm" name="email_status_comment" value="<?php echo htmlspecialchars((string)($lead['email_status_comment'] ?? '')); ?>" placeholder="e.g. bounced reason, opened note">
                                         </div>
                                     </div>
                                 </div>
@@ -307,60 +357,74 @@ if ($edit) {
                         <?php endif; ?>
 
                         <div class="col-12">
-                            <div class="card border-0 bg-light">
-                                <div class="card-body">
-                                    <div class="fw-bold mb-3"><i class="bi bi-person-lines-fill me-1"></i> Lead Information</div>
-                                    <div class="row g-3">
+                            <div class="card border-0 bg-light-subtle">
+                                <div class="card-body py-2">
+                                    <div class="small fw-bold mb-2"><i class="bi bi-person-lines-fill me-1"></i> Lead Information</div>
+                                    <div class="row g-2">
                                         <?php
                                             $first = $pick(['first_name','firstname','first','given_name'], (string)($lead['first_name'] ?? ''));
                                             $last = $pick(['last_name','lastname','last','surname','family_name'], (string)($lead['last_name'] ?? ''));
                                             $job = $pick(['job_title','jobtitle','title','designation'], (string)($lead['job_title'] ?? ''));
-                                            $email = $pick(['email','email_address','emailaddress','work_email'], (string)($lead['email'] ?? ''));
-                                            $li = $pick(['linkedin_link','linkedin_url','linkedin_profile','linkedinprofile'], (string)($lead['linkedin_link'] ?? ''));
-                                            $phone = $pick(['contact_phone','phone','phone_number','mobile','mobile_number','contact_number'], (string)($lead['contact_phone'] ?? ''));
-                                            $company = $pick(['company_name','company','companyname','organization','organisation','account_name'], (string)($lead['company_name'] ?? ''));
-                                            $companyLi = $pick(['company_linkedin','company_linkedin_url','companylinkedin','companylinkedinurl'], (string)($lead['company_linkedin'] ?? ''));
-                                            $industry = $pick(['industry'], (string)($lead['industry'] ?? ''));
+                                            $email = $pick(['email','email_address','emailaddress','work_email','prospect_email'], (string)($lead['email'] ?? ''));
+                                            $li = $pick(['linkedin_link','linkedin_url','linkedin_profile','linkedinprofile','prospect_linkedin','prospect_linkedin_url'], (string)($lead['linkedin_link'] ?? ''));
+                                            $phone = $pick(['contact_phone','phone','phone_number','mobile','mobile_number','contact_number','prospect_phone'], (string)($lead['contact_phone'] ?? ''));
+                                            $company = $pick(['company_name','company','companyname','organization','organisation','account_name','companyname'], (string)($lead['company_name'] ?? ''));
+                                            $companyLi = $pick(['company_linkedin','company_linkedin_url','company_linkedin_link','companylinkedin','companylinkedinurl','linkedin_company'], (string)($lead['company_linkedin'] ?? ''));
+                                            $industry = $pick(['industry','company_industry','sector'], (string)($lead['industry'] ?? ''));
                                         ?>
-                                        <div class="col-md-6 <?php echo ($hideFilled && $isFilled($first)) ? 'filled-field' : ''; ?>">
-                                            <label class="form-label small text-muted">First Name</label>
-                                            <input class="form-control" value="<?php echo htmlspecialchars($first); ?>" readonly>
+                                        <div class="col-md-3 <?php echo ($hideFilled && $isFilled($first)) ? 'filled-field' : ''; ?>">
+                                            <label class="form-label x-small text-muted mb-1">First Name</label>
+                                            <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($first); ?>" readonly>
                                         </div>
-                                        <div class="col-md-6 <?php echo ($hideFilled && $isFilled($last)) ? 'filled-field' : ''; ?>">
-                                            <label class="form-label small text-muted">Last Name</label>
-                                            <input class="form-control" value="<?php echo htmlspecialchars($last); ?>" readonly>
+                                        <div class="col-md-3 <?php echo ($hideFilled && $isFilled($last)) ? 'filled-field' : ''; ?>">
+                                            <label class="form-label x-small text-muted mb-1">Last Name</label>
+                                            <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($last); ?>" readonly>
                                         </div>
-                                        <div class="col-md-6 <?php echo ($hideFilled && $isFilled($job)) ? 'filled-field' : ''; ?>">
-                                            <label class="form-label small text-muted">Job Title</label>
-                                            <input class="form-control" value="<?php echo htmlspecialchars($job); ?>" readonly>
+                                        <div class="col-md-3 <?php echo ($hideFilled && $isFilled($job)) ? 'filled-field' : ''; ?>">
+                                            <label class="form-label x-small text-muted mb-1">Job Title</label>
+                                            <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($job); ?>" readonly>
                                         </div>
-                                        <div class="col-md-6 <?php echo ($hideFilled && $isFilled($email)) ? 'filled-field' : ''; ?>">
-                                            <label class="form-label small text-muted">Email</label>
-                                            <input class="form-control" type="email" value="<?php echo htmlspecialchars($email); ?>" readonly>
+                                        <div class="col-md-3 <?php echo ($hideFilled && $isFilled($email)) ? 'filled-field' : ''; ?>">
+                                            <label class="form-label x-small text-muted mb-1">Email</label>
+                                            <input class="form-control form-control-sm bg-white" type="email" value="<?php echo htmlspecialchars($email); ?>" readonly>
                                         </div>
-                                        <div class="col-md-6 <?php echo ($hideFilled && $isFilled($li)) ? 'filled-field' : ''; ?>">
-                                            <label class="form-label small text-muted">LinkedIn Link</label>
-                                            <input class="form-control" value="<?php echo htmlspecialchars($li); ?>" readonly>
+                                        <div class="col-md-4 <?php echo ($hideFilled && $isFilled($li)) ? 'filled-field' : ''; ?>">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <label class="form-label x-small text-muted mb-1">LinkedIn Link</label>
+                                                <?php if ($li !== ''): ?>
+                                                    <a href="<?php echo htmlspecialchars($li); ?>" target="_blank" class="ms-2 text-primary" title="Visit LinkedIn">
+                                    <i class="bi bi-linkedin fs-6"></i>
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                        <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($li); ?>" readonly>
+                    </div>
+                    <div class="col-md-4 <?php echo ($hideFilled && $isFilled($phone)) ? 'filled-field' : ''; ?>">
+                        <label class="form-label x-small text-muted mb-1">Contact Phone</label>
+                        <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($phone); ?>" readonly>
+                    </div>
+                    <div class="col-md-4 <?php echo ($hideFilled && $isFilled($company)) ? 'filled-field' : ''; ?>">
+                        <label class="form-label x-small text-muted mb-1">Company Name</label>
+                        <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($company); ?>" readonly>
+                    </div>
+                    <div class="col-md-4 <?php echo ($hideFilled && $isFilled($companyLi)) ? 'filled-field' : ''; ?>">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label x-small text-muted mb-1">Company LinkedIn</label>
+                            <?php if ($companyLi !== ''): ?>
+                                <a href="<?php echo htmlspecialchars($companyLi); ?>" target="_blank" class="ms-2 text-primary" title="Visit Company LinkedIn">
+                                    <i class="bi bi-linkedin fs-6"></i>
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                        <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($companyLi); ?>" readonly>
+                    </div>
+                                        <div class="col-md-4 <?php echo ($hideFilled && $isFilled($industry)) ? 'filled-field' : ''; ?>">
+                                            <label class="form-label x-small text-muted mb-1">Industry</label>
+                                            <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($industry); ?>" readonly>
                                         </div>
-                                        <div class="col-md-6 <?php echo ($hideFilled && $isFilled($phone)) ? 'filled-field' : ''; ?>">
-                                            <label class="form-label small text-muted">Contact Phone</label>
-                                            <input class="form-control" value="<?php echo htmlspecialchars($phone); ?>" readonly>
-                                        </div>
-                                        <div class="col-md-6 <?php echo ($hideFilled && $isFilled($company)) ? 'filled-field' : ''; ?>">
-                                            <label class="form-label small text-muted">Company Name</label>
-                                            <input class="form-control" value="<?php echo htmlspecialchars($company); ?>" readonly>
-                                        </div>
-                                        <div class="col-md-6 <?php echo ($hideFilled && $isFilled($companyLi)) ? 'filled-field' : ''; ?>">
-                                            <label class="form-label small text-muted">Company LinkedIn</label>
-                                            <input class="form-control" value="<?php echo htmlspecialchars($companyLi); ?>" readonly>
-                                        </div>
-                                        <div class="col-md-6 <?php echo ($hideFilled && $isFilled($industry)) ? 'filled-field' : ''; ?>">
-                                            <label class="form-label small text-muted">Industry</label>
-                                            <input class="form-control" value="<?php echo htmlspecialchars($industry); ?>" readonly>
-                                        </div>
-                                        <div class="col-12 <?php echo ($hideFilled && $isFilled($comment)) ? 'filled-field' : ''; ?>">
-                                            <label class="form-label small text-muted">Comment</label>
-                                            <textarea class="form-control" name="lead_comment" rows="3"><?php echo htmlspecialchars($comment); ?></textarea>
+                                        <div class="col-md-4 <?php echo ($hideFilled && $isFilled($comment)) ? 'filled-field' : ''; ?>">
+                                            <label class="form-label x-small text-muted mb-1">Comment</label>
+                                            <textarea class="form-control form-control-sm" name="lead_comment" rows="1"><?php echo htmlspecialchars($comment); ?></textarea>
                                         </div>
                                     </div>
                                 </div>
@@ -368,27 +432,35 @@ if ($edit) {
                         </div>
 
                         <div class="col-12">
-                            <div class="card border-0 bg-light">
-                                <div class="card-body">
-                                    <div class="fw-bold mb-3"><i class="bi bi-mic me-1"></i> Call Recording</div>
-                                    <?php if (!empty($lead['recording_path'])): ?>
-                                        <?php
-                                            $rp = (string)($lead['recording_path'] ?? '');
-                                            $recUrl = $rp;
-                                            if ($rp !== '' && !preg_match('/^https?:\\/\\//i', $rp) && preg_match('/^uploads\\//i', $rp)) {
-                                                $recUrl = rtrim(appBasePath(), '/') . '/' . $rp;
-                                            }
-                                        ?>
-                                        <audio controls class="w-100 mb-3" style="height: 34px;">
-                                            <source src="<?php echo htmlspecialchars($recUrl); ?>" type="audio/mpeg">
-                                        </audio>
-                                        <div class="form-check mb-3">
-                                            <input class="form-check-input" type="checkbox" id="remove_recording" name="remove_recording" value="1">
-                                            <label class="form-check-label small" for="remove_recording">Remove existing recording</label>
+                            <div class="card border-0 bg-light-subtle">
+                                <div class="card-body py-2">
+                                    <div class="row g-2 align-items-center">
+                                        <div class="col-md-4">
+                                            <div class="small fw-bold mb-1"><i class="bi bi-mic me-1"></i> Call Recording</div>
+                                            <?php if (!empty($lead['recording_path'])): ?>
+                                                <?php
+                                                    $rp = (string)($lead['recording_path'] ?? '');
+                                                    $recUrl = $rp;
+                                                    if ($rp !== '' && !preg_match('/^https?:\\/\\//i', $rp) && preg_match('/^uploads\\//i', $rp)) {
+                                                        $recUrl = rtrim(appBasePath(), '/') . '/' . $rp;
+                                                    }
+                                                ?>
+                                                <audio controls class="w-100" style="height: 30px;">
+                                                    <source src="<?php echo htmlspecialchars($recUrl); ?>" type="audio/mpeg">
+                                                </audio>
+                                                <div class="form-check mt-1">
+                                                    <input class="form-check-input" type="checkbox" id="remove_recording" name="remove_recording" value="1">
+                                                    <label class="form-check-label x-small" for="remove_recording">Remove existing</label>
+                                                </div>
+                                            <?php else: ?>
+                                                <div class="x-small text-muted italic">No recording found</div>
+                                            <?php endif; ?>
                                         </div>
-                                    <?php endif; ?>
-                                    <label class="form-label small text-muted">Replace Recording (optional)</label>
-                                    <input type="file" class="form-control" name="recording" accept="audio/*">
+                                        <div class="col-md-8">
+                                            <label class="form-label x-small text-muted mb-1">Replace Recording (optional)</label>
+                                            <input type="file" class="form-control form-control-sm" name="recording" accept="audio/*">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -414,12 +486,10 @@ if ($edit) {
                             ?>
                             <?php if (!empty($customFields)): ?>
                             <div class="col-12">
-                                <div class="card border-0 bg-light">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <div class="fw-bold"><i class="bi bi-ui-checks me-1"></i> Campaign Form: <?php echo htmlspecialchars($formName); ?></div>
-                                        </div>
-                                        <div class="row g-3">
+                                <div class="card border-0 bg-light-subtle">
+                                    <div class="card-body py-2">
+                                        <div class="small fw-bold mb-2"><i class="bi bi-ui-checks me-1"></i> Campaign Form: <?php echo htmlspecialchars($formName); ?></div>
+                                        <div class="row g-2">
                                             <?php foreach ($customFields as $f): ?>
                                                 <?php
                                                     $key = (string)($f['key'] ?? '');
@@ -428,69 +498,130 @@ if ($edit) {
                                                     $type = (string)($f['type'] ?? 'text');
                                                     $required = !empty($f['required']);
                                                     $opts = is_array($f['options'] ?? null) ? $f['options'] : [];
-                                                    $val = $formData[$key] ?? null;
+                                                    
+                                                    // Robust lookup for custom field value with synonyms
+                                                    $aliases = [$key, $label];
+                                                    $nk = normalizeSubmissionKey($key);
+                                                    $nl = normalizeSubmissionKey($label);
+                                                    if ($nk !== '') $aliases[] = $nk;
+                                                    if ($nl !== '') $aliases[] = $nl;
+                                                    
+                                                    $syns = [
+                                                        'company_website' => ['website', 'domain', 'company_domain', 'company_url'],
+                                                        'website' => ['company_website', 'domain', 'company_domain'],
+                                                        'software_implementation_timeline' => ['implementation_timeline', 'timeline', 'when_is_your_company_planning_to_implement_new_software', 'cq1'],
+                                                        'implementation_timeline' => ['software_implementation_timeline', 'timeline'],
+                                                        'company_size' => ['employee_size', 'employees', 'headcount'],
+                                                        'employee_size' => ['company_size', 'employees', 'headcount'],
+                                                        'country' => ['location', 'country_name'],
+                                                    ];
+                                                    $search = $aliases;
+                                                    foreach ($aliases as $a) {
+                                                        if (isset($syns[$a])) $search = array_merge($search, $syns[$a]);
+                                                    }
+                                                    $search = array_unique($search);
+
+                                                    $val = null;
+                                                    foreach ($search as $s) {
+                                                        if (isset($formData[$s]) && $formData[$s] !== '' && $formData[$s] !== null) {
+                                                            $val = $formData[$s]; break;
+                                                        }
+                                                        $ns = normalizeSubmissionKey($s);
+                                                        if (isset($indexedData[$ns]) && $indexedData[$ns] !== '' && $indexedData[$ns] !== null) {
+                                                            $val = $indexedData[$ns]; break;
+                                                        }
+                                                        if (isset($lead[$s]) && $lead[$s] !== '' && $lead[$s] !== null) {
+                                                            $val = $lead[$s]; break;
+                                                        }
+                                                        if ($ns !== '' && isset($lead[$ns]) && $lead[$ns] !== '' && $lead[$ns] !== null) {
+                                                            $val = $lead[$ns]; break;
+                                                        }
+                                                    }
                                                 ?>
                                                 <?php
                                                     $valStr = '';
                                                     if (is_array($val)) $valStr = implode(',', array_filter(array_map('strval', $val)));
                                                     else $valStr = trim((string)($val ?? ''));
                                                     $filledClass = ($hideFilled && $valStr !== '') ? 'filled-field' : '';
+                                                    
+                                                    // Determine column width based on type
+                                                    $colWidth = 'col-md-4';
+                                                    if ($type === 'textarea' || $type === 'checkbox' || $type === 'radio') $colWidth = 'col-md-6';
                                                 ?>
-                                                <div class="col-md-6 <?php echo $filledClass; ?>">
-                                                    <label class="form-label small text-muted">
-                                                        <?php echo htmlspecialchars($label); ?>
-                                                        <?php if ($required): ?><span class="text-danger">*</span><?php endif; ?>
-                                                    </label>
+                                                <div class="<?php echo $colWidth; ?> <?php echo $filledClass; ?>">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <label class="form-label x-small text-muted mb-0">
+                                                            <?php echo htmlspecialchars($label); ?>
+                                                            <?php if ($required): ?><span class="text-danger">*</span><?php endif; ?>
+                                                        </label>
+                                                        <?php 
+                                                            $isUrl = filter_var($valStr, FILTER_VALIDATE_URL);
+                                                            $isLikelyUrl = preg_match('/website|linkedin|link|url/i', $key) || preg_match('/website|linkedin|link|url/i', $label);
+                                                            if (($isUrl || $isLikelyUrl) && $valStr !== '' && !is_array($val)): 
+                                                                $visitUrl = $valStr;
+                                                                if (!preg_match('/^https?:\\/\\//i', $visitUrl)) $visitUrl = 'https://' . $visitUrl;
+                                                                $iconClass = 'bi-box-arrow-up-right';
+                                                                if (stripos($key, 'linkedin') !== false || stripos($label, 'linkedin') !== false) $iconClass = 'bi-linkedin';
+                                                                elseif (stripos($key, 'website') !== false || stripos($label, 'website') !== false) $iconClass = 'bi-globe';
+                                                        ?>
+                                                            <a href="<?php echo htmlspecialchars($visitUrl); ?>" target="_blank" class="text-primary" title="Visit Link">
+                                                                <i class="bi <?php echo $iconClass; ?> fs-6"></i>
+                                                            </a>
+                                                        <?php endif; ?>
+                                                    </div>
                                                     <?php if ($type === 'textarea'): ?>
-                                                        <textarea class="form-control" name="cf[<?php echo htmlspecialchars($key); ?>]" rows="3" <?php echo $required ? 'required' : ''; ?>><?php echo htmlspecialchars((string)($val ?? '')); ?></textarea>
+                                                        <textarea class="form-control form-control-sm" name="cf[<?php echo htmlspecialchars($key); ?>]" rows="1" <?php echo $required ? 'required' : ''; ?>><?php echo htmlspecialchars((string)($val ?? '')); ?></textarea>
                                                     <?php elseif ($type === 'select'): ?>
-                                                        <select class="form-select" name="cf[<?php echo htmlspecialchars($key); ?>]" <?php echo $required ? 'required' : ''; ?>>
+                                                        <select class="form-select form-select-sm" name="cf[<?php echo htmlspecialchars($key); ?>]" <?php echo $required ? 'required' : ''; ?>>
                                                             <option value="">Select</option>
                                                             <?php foreach ($opts as $o): ?>
-                                                                <?php $oStr = (string)$o; ?>
-                                                                <option value="<?php echo htmlspecialchars($oStr); ?>" <?php echo ((string)($val ?? '') === $oStr) ? 'selected' : ''; ?>><?php echo htmlspecialchars($oStr); ?></option>
+                                                                <?php 
+                                                                    $oStr = trim((string)$o); 
+                                                                    $vStr = trim((string)($val ?? ''));
+                                                                    $selected = ($vStr === $oStr) ? 'selected' : '';
+                                                                ?>
+                                                                <option value="<?php echo htmlspecialchars($oStr); ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($oStr); ?></option>
                                                             <?php endforeach; ?>
                                                         </select>
                                                     <?php elseif ($type === 'radio'): ?>
-                                                        <div class="d-flex flex-column gap-2 mt-1">
+                                                        <div class="d-flex flex-wrap gap-3 mt-0">
                                                             <?php foreach ($opts as $o): ?>
                                                                 <?php $oStr = (string)$o; $id = 'cf_'.$key.'_'.preg_replace('/[^a-zA-Z0-9_]+/', '_', $oStr); ?>
                                                                 <div class="form-check">
                                                                     <input class="form-check-input" type="radio" id="<?php echo htmlspecialchars($id); ?>" name="cf[<?php echo htmlspecialchars($key); ?>]" value="<?php echo htmlspecialchars($oStr); ?>" <?php echo ((string)($val ?? '') === $oStr) ? 'checked' : ''; ?> <?php echo $required ? 'required' : ''; ?>>
-                                                                    <label class="form-check-label small" for="<?php echo htmlspecialchars($id); ?>"><?php echo htmlspecialchars($oStr); ?></label>
+                                                                    <label class="form-check-label x-small" for="<?php echo htmlspecialchars($id); ?>"><?php echo htmlspecialchars($oStr); ?></label>
                                                                 </div>
                                                             <?php endforeach; ?>
                                                         </div>
                                                     <?php elseif ($type === 'checkbox'): ?>
                                                         <?php $arrVal = is_array($val) ? $val : (is_string($val) ? array_filter(array_map('trim', explode(',', $val))) : []); ?>
-                                                        <div class="d-flex flex-column gap-2 mt-1">
+                                                        <div class="d-flex flex-wrap gap-3 mt-0">
                                                             <?php foreach ($opts as $o): ?>
                                                                 <?php $oStr = (string)$o; $id = 'cf_'.$key.'_'.preg_replace('/[^a-zA-Z0-9_]+/', '_', $oStr); ?>
                                                                 <div class="form-check">
                                                                     <input class="form-check-input" type="checkbox" id="<?php echo htmlspecialchars($id); ?>" name="cf[<?php echo htmlspecialchars($key); ?>][]" value="<?php echo htmlspecialchars($oStr); ?>" <?php echo in_array($oStr, $arrVal, true) ? 'checked' : ''; ?>>
-                                                                    <label class="form-check-label small" for="<?php echo htmlspecialchars($id); ?>"><?php echo htmlspecialchars($oStr); ?></label>
+                                                                    <label class="form-check-label x-small" for="<?php echo htmlspecialchars($id); ?>"><?php echo htmlspecialchars($oStr); ?></label>
                                                                 </div>
                                                             <?php endforeach; ?>
                                                         </div>
                                                     <?php elseif ($type === 'file_upload'): ?>
-                                                        <?php if (is_string($val) && $val !== ''): ?>
-                                                            <div class="mb-2">
-                                                                <a href="<?php echo htmlspecialchars($val); ?>" target="_blank" class="btn btn-xs btn-outline-info">View uploaded file</a>
-                                                            </div>
-                                                            <input type="hidden" name="existing_cf[<?php echo htmlspecialchars($key); ?>]" value="<?php echo htmlspecialchars($val); ?>">
-                                                        <?php endif; ?>
-                                                        <input type="file" class="form-control" name="cffile[<?php echo htmlspecialchars($key); ?>]" <?php echo $required ? 'required' : ''; ?>>
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <?php if (is_string($val) && $val !== ''): ?>
+                                                                <a href="<?php echo htmlspecialchars($val); ?>" target="_blank" class="btn btn-xs btn-outline-info p-1"><i class="bi bi-file-earmark-text"></i></a>
+                                                                <input type="hidden" name="existing_cf[<?php echo htmlspecialchars($key); ?>]" value="<?php echo htmlspecialchars($val); ?>">
+                                                            <?php endif; ?>
+                                                            <input type="file" class="form-control form-control-sm" name="cffile[<?php echo htmlspecialchars($key); ?>]" <?php echo $required ? 'required' : ''; ?>>
+                                                        </div>
                                                     <?php else: ?>
                                                         <?php
                                                             $inputType = $type;
                                                             if (!in_array($inputType, ['text','email','tel','url','number','date'], true)) $inputType = 'text';
                                                         ?>
-                                                        <input class="form-control" type="<?php echo htmlspecialchars($inputType); ?>" name="cf[<?php echo htmlspecialchars($key); ?>]" value="<?php echo htmlspecialchars((string)($val ?? '')); ?>" <?php echo $required ? 'required' : ''; ?>>
+                                                        <input class="form-control form-control-sm" type="<?php echo htmlspecialchars($inputType); ?>" name="cf[<?php echo htmlspecialchars($key); ?>]" value="<?php echo htmlspecialchars((string)($val ?? '')); ?>" <?php echo $required ? 'required' : ''; ?>>
                                                 <?php endif; ?>
                                             </div>
                                             <?php endforeach; ?>
                                         </div>
-                                        <div class="text-muted small mt-3"><i class="bi bi-info-circle me-1"></i> Saving will update the form submission for this lead.</div>
                                     </div>
                                 </div>
                             </div>
@@ -498,9 +629,9 @@ if ($edit) {
                         <?php endif; ?>
                     </div>
 
-                    <div class="d-flex justify-content-end gap-3 mt-5 border-top pt-4 <?php echo $standalone ? '' : 'p-4'; ?>">
-                        <a href="<?php echo htmlspecialchars($postTo); ?>" class="btn btn-light px-4" <?php echo $standalone ? '' : 'data-bs-dismiss="modal"'; ?>>Cancel</a>
-                        <button type="submit" class="btn btn-primary px-5">Save Details</button>
+                    <div class="d-flex justify-content-end gap-2 mt-3 border-top pt-3 <?php echo $standalone ? '' : 'px-4 pb-4'; ?>">
+                        <a href="<?php echo htmlspecialchars($postTo); ?>" class="btn btn-light btn-sm px-4" <?php echo $standalone ? '' : 'data-bs-dismiss="modal"'; ?>>Cancel</a>
+                        <button type="submit" class="btn btn-primary btn-sm px-5">Save Changes</button>
                     </div>
                 </form>
             </div>
@@ -527,17 +658,37 @@ if ($edit) {
 }
 
 if ($format === 'html') {
-    $pageTitle = 'Lead Details';
-    include __DIR__ . '/../../includes/layout/app_start.php';
+    $activity = [];
+    $stmt = $conn->prepare("
+        SELECT la.*, u.full_name AS user_name, u.role AS user_role
+        FROM lead_activity la
+        LEFT JOIN users u ON la.actor_id = u.id
+        WHERE la.lead_id = ?
+        ORDER BY la.created_at DESC
+        LIMIT 50
+    ");
+    if ($stmt) {
+        $stmt->bind_param('i', $leadId);
+        $stmt->execute();
+        $activity = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+        $stmt->close();
+    }
+
+    $embed = !empty($_GET['embed']) || isAjaxRequest();
+    $standalone = !$embed;
+    if ($standalone) {
+        $pageTitle = 'Lead Details';
+        include __DIR__ . '/../../includes/layout/app_start.php';
+    }
 }
 ?>
-<?php if ($format === 'html'): ?>
+<?php if ($format === 'html' && $standalone): ?>
 <div class="container-fluid py-3">
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
 <?php endif; ?>
-<div class="p-4">
-    <div class="d-flex justify-content-between align-items-start mb-4">
+<div class="<?php echo ($format === 'html' && !$standalone) ? 'p-2' : 'p-4'; ?>">
+    <div class="d-flex justify-content-between align-items-start <?php echo $standalone ? 'mb-4' : 'mb-2'; ?>">
         <div>
             <div class="h4 mb-1"><?php echo htmlspecialchars($fullName ?: 'Lead'); ?></div>
             <div class="text-muted">
@@ -558,32 +709,29 @@ if ($format === 'html') {
         </div>
     </div>
 
-    <div class="row g-4">
+    <div class="row <?php echo $standalone ? 'g-4' : 'g-2'; ?>">
         <div class="col-lg-6">
             <div class="card border-0 bg-light h-100">
-                <div class="card-header bg-transparent border-0 fw-bold pt-3"><i class="bi bi-person-badge me-1"></i> Contact Information</div>
-                <div class="card-body">
-                    <div class="row g-3">
+                <div class="card-header bg-transparent border-0 fw-bold <?php echo $standalone ? 'pt-3' : 'pt-2 small'; ?>"><i class="bi bi-person-badge me-1"></i> Contact Information</div>
+                <div class="card-body <?php echo $standalone ? '' : 'pt-0 pb-2'; ?>">
+                    <div class="row <?php echo $standalone ? 'g-3' : 'g-2'; ?>">
                         <div class="col-12">
-                            <div class="text-muted small mb-1">Job Title</div>
-                            <div class="fw-semibold text-dark"><?php echo htmlspecialchars((string)($lead['job_title'] ?? '—')); ?></div>
+                            <div class="text-muted x-small mb-0">Job Title</div>
+                            <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)($lead['job_title'] ?? '—')); ?></div>
                         </div>
                         <div class="col-md-6">
-                            <div class="text-muted small mb-1">Email</div>
-                            <div class="fw-semibold text-dark"><?php echo htmlspecialchars((string)($lead['email'] ?? '—')); ?></div>
+                            <div class="text-muted x-small mb-0">Email</div>
+                            <div class="fw-semibold text-dark small text-break"><?php echo htmlspecialchars((string)($lead['email'] ?? '—')); ?></div>
                         </div>
                         <div class="col-md-6">
-                            <div class="text-muted small mb-1">Phone</div>
-                            <div class="fw-semibold text-dark"><?php echo htmlspecialchars((string)($lead['contact_phone'] ?? '—')); ?></div>
+                            <div class="text-muted x-small mb-0">Phone</div>
+                            <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)($lead['contact_phone'] ?? '—')); ?></div>
                         </div>
-                        <div class="col-12 mt-3">
-                            <div class="text-muted small mb-2">LinkedIn Profile</div>
+                        <div class="col-12 <?php echo $standalone ? 'mt-3' : 'mt-1'; ?>">
                             <?php if ($linkedin !== ''): ?>
-                                <a class="btn btn-outline-primary btn-sm rounded-pill px-3" href="<?php echo htmlspecialchars((string)$linkedin); ?>" target="_blank" rel="noopener noreferrer">
-                                    <i class="bi bi-linkedin me-1"></i>Open LinkedIn
+                                <a class="text-primary me-2" href="<?php echo htmlspecialchars((string)$linkedin); ?>" target="_blank" rel="noopener noreferrer" title="LinkedIn">
+                                    <i class="bi bi-linkedin fs-5"></i>
                                 </a>
-                            <?php else: ?>
-                                <div class="fw-semibold text-muted small">No profile linked</div>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -593,41 +741,37 @@ if ($format === 'html') {
 
         <div class="col-lg-6">
             <div class="card border-0 bg-light h-100">
-                <div class="card-header bg-transparent border-0 fw-bold pt-3"><i class="bi bi-building me-1"></i> Company Details</div>
-                <div class="card-body">
-                    <div class="row g-3">
+                <div class="card-header bg-transparent border-0 fw-bold <?php echo $standalone ? 'pt-3' : 'pt-2 small'; ?>"><i class="bi bi-building me-1"></i> Company Details</div>
+                <div class="card-body <?php echo $standalone ? '' : 'pt-0 pb-2'; ?>">
+                    <div class="row <?php echo $standalone ? 'g-3' : 'g-2'; ?>">
                         <div class="col-12">
-                            <div class="text-muted small mb-1">Company Name</div>
-                            <div class="fw-semibold text-dark"><?php echo htmlspecialchars((string)($lead['company_name'] ?? '—')); ?></div>
+                            <div class="text-muted x-small mb-0">Company Name</div>
+                            <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)($lead['company_name'] ?? '—')); ?></div>
                         </div>
                         <div class="col-md-6">
-                            <div class="text-muted small mb-1">Company Size</div>
-                            <div class="fw-semibold text-dark"><?php echo htmlspecialchars((string)($lead['company_size'] ?? '—')); ?></div>
+                            <div class="text-muted x-small mb-0">Size</div>
+                            <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)($lead['company_size'] ?? '—')); ?></div>
                         </div>
                         <div class="col-md-6">
-                            <div class="text-muted small mb-1">Country</div>
-                            <div class="fw-semibold text-dark"><?php echo htmlspecialchars((string)($lead['country'] ?? '—')); ?></div>
+                            <div class="text-muted x-small mb-0">Country</div>
+                            <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)($lead['country'] ?? '—')); ?></div>
                         </div>
                         <div class="col-md-6">
-                            <div class="text-muted small mb-1">Industry</div>
-                            <div class="fw-semibold text-dark"><?php echo htmlspecialchars((string)($lead['industry'] ?? '—')); ?></div>
+                            <div class="text-muted x-small mb-0">Industry</div>
+                            <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)($lead['industry'] ?? '—')); ?></div>
                         </div>
-                        <div class="col-12 mt-2">
-                            <div class="text-muted small mb-2">Company Socials & Web</div>
+                        <div class="col-12 <?php echo $standalone ? 'mt-2' : 'mt-1'; ?>">
                             <div class="d-flex flex-wrap gap-2">
                                 <?php if ($companyLinkedin !== ''): ?>
-                                    <a class="btn btn-outline-secondary btn-sm rounded-pill px-3" href="<?php echo htmlspecialchars((string)$companyLinkedin); ?>" target="_blank" rel="noopener noreferrer">
-                                        <i class="bi bi-linkedin me-1"></i>LinkedIn Page
+                                    <a class="text-primary" href="<?php echo htmlspecialchars((string)$companyLinkedin); ?>" target="_blank" rel="noopener noreferrer" title="Company LinkedIn">
+                                        <i class="bi bi-linkedin fs-5"></i>
                                     </a>
                                 <?php endif; ?>
                                 <?php if ($companyWebsite !== ''): ?>
-                                    <a class="btn btn-outline-info btn-sm rounded-pill px-3" href="<?php echo htmlspecialchars((string)$companyWebsite); ?>" target="_blank" rel="noopener noreferrer">
-                                        <i class="bi bi-globe me-1"></i>Visit Website
+                                    <a class="text-info" href="<?php echo htmlspecialchars((string)$companyWebsite); ?>" target="_blank" rel="noopener noreferrer" title="Company Website">
+                                        <i class="bi bi-globe fs-5"></i>
                                     </a>
                                 <?php endif; ?>
-                                <?php if ($companyLinkedin === '' && $companyWebsite === ''): ?>
-                                    <div class="fw-semibold text-muted small">No company links available</div>
-                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -637,25 +781,25 @@ if ($format === 'html') {
 
         <div class="col-lg-6">
             <div class="card border-0 bg-light h-100">
-                <div class="card-header bg-transparent border-0 fw-bold pt-3"><i class="bi bi-shield-check me-1"></i> QA & Status Tracking</div>
-                <div class="card-body">
-                    <div class="row g-3">
+                <div class="card-header bg-transparent border-0 fw-bold <?php echo $standalone ? 'pt-3' : 'pt-2 small'; ?>"><i class="bi bi-shield-check me-1"></i> QA & Status Tracking</div>
+                <div class="card-body <?php echo $standalone ? '' : 'pt-0 pb-2'; ?>">
+                    <div class="row <?php echo $standalone ? 'g-3' : 'g-2'; ?>">
                         <div class="col-md-6">
-                            <div class="text-muted small mb-1">Submitted At</div>
-                            <div class="fw-semibold text-dark"><?php echo htmlspecialchars((string)$formFilledAt); ?></div>
+                            <div class="text-muted x-small mb-0">Submitted At</div>
+                            <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)$formFilledAt); ?></div>
                         </div>
                         <div class="col-md-6">
-                            <div class="text-muted small mb-1">QA Last Updated</div>
-                            <div class="fw-semibold text-dark"><?php echo htmlspecialchars((string)$qaUpdatedAt); ?></div>
+                            <div class="text-muted x-small mb-0">QA Updated</div>
+                            <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)$qaUpdatedAt); ?></div>
                         </div>
                         <div class="col-12">
-                            <div class="text-muted small mb-1">QA Reviewed By</div>
-                            <div class="fw-semibold text-dark"><?php echo htmlspecialchars((string)($lead['reviewer_name'] ?? '—')); ?></div>
+                            <div class="text-muted x-small mb-0">QA Reviewed By</div>
+                            <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)($lead['reviewer_name'] ?? '—')); ?></div>
                         </div>
                         <div class="col-12">
-                            <div class="text-muted small mb-1">QA Internal Comment</div>
-                            <div class="p-2 bg-white rounded border small text-dark" style="min-height: 50px;">
-                                <?php echo nl2br(htmlspecialchars((string)(($lead['qa_comment'] ?? '') !== '' ? $lead['qa_comment'] : 'No comments provided.'))); ?>
+                            <div class="text-muted x-small mb-0">QA Internal Comment</div>
+                            <div class="p-1 bg-white rounded border x-small text-dark" style="min-height: 40px;">
+                                <?php echo nl2br(htmlspecialchars((string)(($lead['qa_comment'] ?? '') !== '' ? $lead['qa_comment'] : 'No comments.'))); ?>
                             </div>
                         </div>
                     </div>
@@ -665,26 +809,27 @@ if ($format === 'html') {
 
         <div class="col-lg-6">
             <div class="card border-0 bg-light h-100">
-                <div class="card-header bg-transparent border-0 fw-bold pt-3"><i class="bi bi-sticky me-1"></i> Notes & Media</div>
-                <div class="card-body">
-                    <div class="mb-4">
-                        <div class="text-muted small mb-2">Agent Comment</div>
-                        <div class="p-2 bg-white rounded border small text-dark" style="min-height: 60px;">
-                            <?php echo nl2br(htmlspecialchars((string)($comment !== '' ? $comment : 'No agent notes.'))); ?>
+                <div class="card-header bg-transparent border-0 fw-bold <?php echo $standalone ? 'pt-3' : 'pt-2 small'; ?>"><i class="bi bi-sticky me-1"></i> Notes & Media</div>
+                <div class="card-body <?php echo $standalone ? '' : 'pt-0 pb-2'; ?>">
+                    <div class="<?php echo $standalone ? 'mb-4' : 'mb-2'; ?>">
+                        <div class="text-muted x-small mb-1">Agent Comment</div>
+                        <div class="p-1 bg-white rounded border x-small text-dark" style="min-height: 40px;">
+                            <?php echo nl2br(htmlspecialchars((string)($comment !== '' ? $comment : 'No notes.'))); ?>
                         </div>
                     </div>
                     <div>
-                        <div class="text-muted small mb-2">Call Recording</div>
+                        <div class="text-muted x-small mb-1">Call Recording</div>
                         <?php if (!empty($lead['recording_path'])): ?>
-                            <audio controls class="w-100 rounded shadow-sm" style="height: 36px;" src="<?php echo htmlspecialchars($lead['recording_path']); ?>"></audio>
+                            <audio controls class="w-100 rounded" style="height: 28px;" src="<?php echo htmlspecialchars($lead['recording_path']); ?>"></audio>
                         <?php else: ?>
-                            <div class="alert alert-secondary py-2 small mb-0"><i class="bi bi-info-circle me-1"></i> No recording attached</div>
+                            <div class="x-small text-muted italic">No recording</div>
                         <?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
 
+        <?php if ($standalone): ?>
         <div class="col-lg-12">
             <div class="card border-0 shadow-sm mt-2">
                 <div class="card-header bg-white py-3 fw-bold"><i class="bi bi-clock-history me-1"></i> Activity History & Timeline</div>
@@ -763,15 +908,18 @@ if ($format === 'html') {
                 </div>
             </div>
         </div>
+        <?php endif; ?>
     </div>
 </div>
-<?php if ($format === 'html'): ?>
+    </div>
+</div>
+<?php if ($format === 'html' && $standalone): ?>
         </div>
     </div>
 </div>
 <?php endif; ?>
 <?php
-if ($format === 'html') {
+if ($format === 'html' && $standalone) {
     include __DIR__ . '/../../includes/layout/app_end.php';
 }
 ?>

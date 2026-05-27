@@ -22,20 +22,20 @@ $search = trim((string)($_GET['search'] ?? ''));
 $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 25;
 
-$appBase = function(): string {
+$appBaseVal = (function() {
     $sn = (string)($_SERVER['SCRIPT_NAME'] ?? '');
     $sn = trim($sn, '/');
     if ($sn === '') return '';
     $parts = explode('/', $sn);
     $root = $parts[0] ?? '';
     return $root !== '' ? ('/' . $root) : '';
-};
-$toUrl = function(?string $p) use ($appBase): string {
+})();
+
+$toUrl = function(?string $p) use ($appBaseVal): string {
     $p = trim((string)$p);
     if ($p === '') return '';
-    if (preg_match('/^https?:\\/\\//i', $p)) return $p;
-    if (str_starts_with($p, '/')) return $p;
-    if (preg_match('/^uploads\\//i', $p)) return $appBase() . '/' . $p;
+    if ($p[0] === '/' || str_starts_with($p, 'http://') || str_starts_with($p, 'https://')) return $p;
+    if (str_starts_with($p, 'uploads/')) return $appBaseVal . '/' . $p;
     return $p;
 };
 
@@ -91,8 +91,8 @@ if ($visible !== null) {
 
 if ($campaignId > 0) { $where[] = 'l.campaign_id = ?'; $params[] = $campaignId; $types .= 'i'; }
 if ($agentId > 0) { $where[] = 'l.agent_id = ?'; $params[] = $agentId; $types .= 'i'; }
-if ($dateFrom !== '') { $where[] = 'DATE(l.created_at) >= ?'; $params[] = $dateFrom; $types .= 's'; }
-if ($dateTo !== '') { $where[] = 'DATE(l.created_at) <= ?'; $params[] = $dateTo; $types .= 's'; }
+if ($dateFrom !== '') { $where[] = 'l.created_at >= ?'; $params[] = $dateFrom . ' 00:00:00'; $types .= 's'; }
+if ($dateTo !== '') { $where[] = 'l.created_at <= ?'; $params[] = $dateTo . ' 23:59:59'; $types .= 's'; }
 if ($qaStatus !== '') {
     $normQa = normalizeQaStatus($qaStatus);
     if ($normQa === 'Pending') {
@@ -154,6 +154,46 @@ $canAssign = hasRole(['admin','qa_director','qa_manager']);
 ?>
 
 <?php $pageTitle = 'QA Audit'; include __DIR__ . '/../../includes/layout/app_start.php'; ?>
+<style>
+  .modal-xl { max-width: 1000px; }
+  .border-2 { border-width: 1px !important; }
+  .bg-light-subtle { background-color: #fafbfc !important; }
+  #qa_lead_details_container { padding: 0.25rem !important; overflow-x: hidden; }
+  #qa_lead_details_container .card { border: none !important; box-shadow: none !important; background: transparent !important; margin-bottom: 0.25rem !important; }
+  #qa_lead_details_container .card-body { padding: 0.25rem 0.5rem !important; }
+  #qa_lead_details_container .h4 { font-size: 1.1rem !important; margin-bottom: 0.25rem !important; }
+  #qa_lead_details_container .h5 { font-size: 0.85rem !important; }
+  #qa_lead_details_container .row { margin-left: -0.15rem; margin-right: -0.15rem; }
+  #qa_lead_details_container .col-lg-6, #qa_lead_details_container .col-md-6, #qa_lead_details_container .col-12 { padding-left: 0.15rem; padding-right: 0.15rem; }
+  .modal-body { padding: 0 !important; }
+  .modal-header { padding: 0.5rem 1rem !important; }
+  .modal-footer { padding: 0.5rem 1rem !important; }
+  
+  /* Custom Scrollbar for a lighter look */
+  #qa_lead_details_container::-webkit-scrollbar, 
+  .col-lg-5.bg-white::-webkit-scrollbar {
+    width: 3px;
+  }
+  #qa_lead_details_container::-webkit-scrollbar-track,
+  .col-lg-5.bg-white::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  #qa_lead_details_container::-webkit-scrollbar-thumb,
+  .col-lg-5.bg-white::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 10px;
+  }
+  #qa_lead_details_container::-webkit-scrollbar-thumb:hover,
+  .col-lg-5.bg-white::-webkit-scrollbar-thumb:hover {
+    background: #999;
+  }
+  
+  /* Hide horizontal scrollbar */
+  #qa_lead_details_container { overflow-x: hidden !important; }
+  
+  .sticky-actions { position: sticky; right: 0; background: white; z-index: 10; }
+  .table-hover tbody tr:hover .sticky-actions { background: #f8f9fa; }
+</style>
 <div class="container-fluid px-0">
   <div class="d-flex align-items-center justify-content-between mb-3">
     <div>
@@ -369,59 +409,83 @@ $canAssign = hasRole(['admin','qa_director','qa_manager']);
 </div>
 
 <div class="modal fade" id="qaModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content border-0 shadow-lg">
       <form method="post" action="action">
-        <div class="modal-header">
-          <h5 class="modal-title">QA Decision</h5>
+        <div class="modal-header bg-light border-bottom-0 py-3">
+          <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-check me-2"></i>QA Decision & Review</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body">
-          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
-          <input type="hidden" name="lead_id" id="qa_lead_id" value="">
-          <input type="hidden" name="return_url" value="<?php echo htmlspecialchars($_SERVER['REQUEST_URI']); ?>">
-          <div class="mb-3">
-            <label class="form-label small text-muted text-uppercase fw-bold">Lead Name</label>
-            <div id="qa_lead_name" class="fw-bold h6"></div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted text-uppercase fw-bold">Quality Status</label>
-            <select class="form-select" name="qa_status" id="qa_status_select">
-              <option value="Pending">Pending QA</option>
-              <?php if (hasRole(['admin','qa_director','qa_manager'])): ?>
-                <option value="Reopened">Reopened</option>
-              <?php endif; ?>
-              <option value="Qualified">Qualified</option>
-              <option value="Disqualified">Disqualified</option>
-              <option value="Rework Needed">Needs Correction</option>
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted text-uppercase fw-bold">Client Delivery Status</label>
-            <select class="form-select" name="client_delivery_status" id="client_delivery_status_select">
-              <option value="Pending">Pending</option>
-              <option value="Delivered">Delivered</option>
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted text-uppercase fw-bold">Internal Comments</label>
-            <textarea class="form-control" id="qa_comment_internal" name="qa_comment_internal" rows="3" placeholder="Internal QA notes..."></textarea>
-          </div>
-          <div class="mb-0">
-            <label class="form-label small text-muted text-uppercase fw-bold">Client Comments (visible to client)</label>
-            <textarea class="form-control" id="qa_comment_client" name="qa_comment_client" rows="3" placeholder="Client-facing notes..."></textarea>
-          </div>
-          <div id="qaRecordingContainer" class="p-3 bg-light rounded-3 mt-3" style="display:none;">
-            <label class="form-label small text-muted text-uppercase fw-bold d-block">Recording Audit</label>
-            <audio id="qaAudioPlayer" controls class="w-100 mb-2"></audio>
-            <a id="qaDownloadLink" class="btn btn-sm btn-outline-secondary w-100" href="#" download>
-              <i class="bi bi-download me-1"></i> Download File
-            </a>
+        <div class="modal-body p-0">
+          <div class="row g-0">
+            <!-- Left Column: Lead Details (Scrollable) -->
+            <div class="col-lg-7 border-end bg-light-subtle" style="max-height: 80vh; overflow-y: auto;">
+              <div id="qa_lead_details_container">
+                <div class="text-center py-5">
+                  <div class="spinner-border text-primary" role="status"></div>
+                  <div class="mt-2 text-muted small">Loading lead details...</div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Right Column: QA Form -->
+            <div class="col-lg-5 bg-white" style="max-height: 80vh; overflow-y: auto;">
+              <div class="p-3">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                <input type="hidden" name="lead_id" id="qa_lead_id" value="">
+                <input type="hidden" name="return_url" value="<?php echo htmlspecialchars($_SERVER['REQUEST_URI']); ?>">
+                
+                <div class="mb-4">
+                  <label class="form-label small text-muted text-uppercase fw-bold mb-1">Lead Name</label>
+                  <div id="qa_lead_name" class="fw-bold h5 text-primary mb-0"></div>
+                </div>
+                
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label small text-muted text-uppercase fw-bold">Quality Status</label>
+                    <select class="form-select form-select-sm border-2" name="qa_status" id="qa_status_select">
+                      <option value="Pending">Pending QA</option>
+                      <?php if (hasRole(['admin','qa_director','qa_manager'])): ?>
+                        <option value="Reopened">Reopened</option>
+                      <?php endif; ?>
+                      <option value="Qualified">Qualified</option>
+                      <option value="Disqualified">Disqualified</option>
+                      <option value="Rework Needed">Needs Correction</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small text-muted text-uppercase fw-bold">Delivery Status</label>
+                    <select class="form-select form-select-sm border-2" name="client_delivery_status" id="client_delivery_status_select">
+                      <option value="Pending">Pending</option>
+                      <option value="Delivered">Delivered</option>
+                    </select>
+                  </div>
+                  
+                  <div class="col-12">
+                    <label class="form-label small text-muted text-uppercase fw-bold">Internal Comments</label>
+                    <textarea class="form-control form-control-sm border-2" id="qa_comment_internal" name="qa_comment_internal" rows="3" placeholder="Notes for internal team..."></textarea>
+                  </div>
+                  
+                  <div class="col-12">
+                    <label class="form-label small text-muted text-uppercase fw-bold">Client Comments</label>
+                    <textarea class="form-control form-control-sm border-2" id="qa_comment_client" name="qa_comment_client" rows="3" placeholder="Notes visible to client..."></textarea>
+                  </div>
+                </div>
+
+                <div id="qaRecordingContainer" class="p-3 bg-light rounded-3 mt-4 border" style="display:none;">
+                  <label class="form-label small text-muted text-uppercase fw-bold d-block mb-2">Recording Audit</label>
+                  <audio id="qaAudioPlayer" controls class="w-100 mb-2" style="height: 32px;"></audio>
+                  <a id="qaDownloadLink" class="btn btn-xs btn-outline-secondary w-100" href="#" download>
+                    <i class="bi bi-download me-1"></i> Download File
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-light border btn-sm" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        <div class="modal-footer bg-light border-top-0 py-3">
+          <button type="button" class="btn btn-light border btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm px-4 fw-bold">Save QA Decision</button>
         </div>
       </form>
     </div>
@@ -464,6 +528,22 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('qa_comment_internal').value = qaComment;
       document.getElementById('qa_comment_client').value = qaClientComment;
 
+      const detailsContainer = document.getElementById('qa_lead_details_container');
+      if (detailsContainer && leadId) {
+        detailsContainer.innerHTML = `
+          <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <div class="mt-2 text-muted small">Fetching lead details...</div>
+          </div>
+        `;
+        fetch('../leads/details?id=' + encodeURIComponent(leadId) + '&format=html&embed=1', {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+          .then(r => r.text())
+          .then(html => { detailsContainer.innerHTML = html; })
+          .catch(() => { detailsContainer.innerHTML = '<div class="alert alert-danger m-3 small">Failed to load lead details.</div>'; });
+      }
+
       const wrap = document.getElementById('qaRecordingContainer');
       if (wrap) {
         if (rec) {
@@ -480,6 +560,7 @@ document.addEventListener('DOMContentLoaded', function() {
     qaModal.addEventListener('hidden.bs.modal', function() {
       const ap = document.getElementById('qaAudioPlayer');
       if (ap) { ap.pause(); ap.src = ''; }
+      document.getElementById('qa_lead_details_container').innerHTML = '';
     });
   }
 });

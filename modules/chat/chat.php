@@ -15,6 +15,42 @@ ensureCsrfToken();
 $user = getCurrentUser();
 ?>
 <?php $pageTitle = 'Chat'; include __DIR__ . '/../../includes/layout/app_start.php'; ?>
+    <style>
+        .chat-input-wrapper {
+            overflow: visible !important;
+        }
+        .emoji-picker-popup {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            z-index: 1050;
+            width: 280px;
+            margin-bottom: 15px;
+            background: #fff;
+        }
+        .emoji-item {
+            font-size: 1.2rem;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+        .emoji-item:hover {
+            background: #f1f3f5 !important;
+            transform: scale(1.15);
+        }
+        .emoji-list::-webkit-scrollbar {
+            width: 5px;
+        }
+        .emoji-list::-webkit-scrollbar-thumb {
+            background: #dee2e6;
+            border-radius: 10px;
+        }
+    </style>
     <div class="container-fluid px-0">
         <div class="chat-container">
             <!-- Sidebar -->
@@ -77,15 +113,44 @@ $user = getCurrentUser();
                             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                             <input type="hidden" name="receiver_id" id="receiverIdInput">
                             <input type="hidden" name="group_id" id="groupIdInput">
-                            <div class="chat-input-wrapper">
-                                <label class="attachment-btn mb-0" for="attachmentInput">
+                            <div class="chat-input-wrapper position-relative">
+                                <label class="attachment-btn mb-0" for="attachmentInput" title="Attach File">
                                     <i class="bi bi-paperclip fs-5"></i>
                                     <input type="file" name="attachment" id="attachmentInput" class="d-none">
                                 </label>
+                                <button type="button" class="btn btn-link text-muted p-0 me-2" id="emojiPickerBtn" title="Emojis">
+                                    <i class="bi bi-emoji-smile fs-5"></i>
+                                </button>
                                 <input type="text" class="form-control" name="message" id="messageInput" placeholder="Type your message here..." autocomplete="off">
-                                <button type="submit" class="btn btn-primary rounded-pill px-4">
+                                <button type="submit" class="btn btn-primary rounded-pill px-4 ms-2">
                                     <i class="bi bi-send-fill"></i>
                                 </button>
+                                
+                                <!-- Emoji Picker Popup -->
+                                <div id="emojiPicker" class="emoji-picker-popup d-none shadow-lg border rounded-3 bg-white">
+                                    <div class="emoji-picker-header p-2 border-bottom d-flex justify-content-between align-items-center">
+                                        <span class="small fw-bold text-muted">Select Emoji</span>
+                                        <button type="button" class="btn-close" style="font-size: 0.7rem;" onclick="toggleEmojiPicker()"></button>
+                                    </div>
+                                    <div class="emoji-list p-2" style="max-height: 250px; overflow-y: auto;">
+                                        <div id="recentEmojisContainer" class="mb-2 d-none">
+                                            <div class="x-small fw-bold text-muted mb-1 px-1 text-uppercase" style="font-size: 0.65rem;">Recently Used</div>
+                                            <div id="recentEmojiList" class="d-flex flex-wrap gap-1"></div>
+                                            <hr class="my-2 mx-1 opacity-25">
+                                        </div>
+                                        <div class="x-small fw-bold text-muted mb-1 px-1 text-uppercase" style="font-size: 0.65rem;">All Emojis</div>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <?php
+                                                $emojis = [
+                                                    '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃','😺','😸','😹','😻','😼','😽','🙀','😿','😾','🤲','👐','🙌','👏','🤝','👍','👎','👊','✊','🤛','🤜','🤞','✌️','🤟','🤘','👌','🤏','👈','👉','👆','👇','☝️','✋','🤚','🖐','🖖','👋','🤙','💪','🦾','🖕','✍️','🙏','🦶','🦵','🦿','💄','💋','👄','🦷','👅','👂','🦻','👃','👣','👁','👀','🧠','🗣','👤','👥'
+                                                ];
+                                                foreach ($emojis as $e) {
+                                                    echo '<button type="button" class="btn btn-sm btn-light p-1 border-0 emoji-item" onclick="insertEmoji(\''.$e.'\')">'.$e.'</button>';
+                                                }
+                                            ?>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <div id="attachmentPreview" class="small text-muted mt-2 d-none">
                                 <i class="bi bi-file-earmark-check me-1"></i> <span id="fileName"></span>
@@ -649,5 +714,67 @@ $user = getCurrentUser();
                 selectDirect(u, 'User', false, '');
             }
         })();
+
+        // Emoji Picker Logic
+        function toggleEmojiPicker() {
+            const p = document.getElementById('emojiPicker');
+            if (p) {
+                const isOpening = p.classList.contains('d-none');
+                p.classList.toggle('d-none');
+                if (isOpening) renderRecentEmojis();
+            }
+        }
+
+        function insertEmoji(e) {
+            const input = document.getElementById('messageInput');
+            if (input) {
+                const start = input.selectionStart;
+                const end = input.selectionEnd;
+                const text = input.value;
+                input.value = text.substring(0, start) + e + text.substring(end);
+                input.focus();
+                const newPos = start + e.length;
+                input.setSelectionRange(newPos, newPos);
+                saveRecentEmoji(e);
+            }
+            toggleEmojiPicker();
+        }
+
+        function saveRecentEmoji(e) {
+            let recent = JSON.parse(localStorage.getItem('chat_recent_emojis') || '[]');
+            recent = recent.filter(x => x !== e);
+            recent.unshift(e);
+            recent = recent.slice(0, 8); // Keep top 8
+            localStorage.setItem('chat_recent_emojis', JSON.stringify(recent));
+        }
+
+        function renderRecentEmojis() {
+            const container = document.getElementById('recentEmojisContainer');
+            const list = document.getElementById('recentEmojiList');
+            const recent = JSON.parse(localStorage.getItem('chat_recent_emojis') || '[]');
+            
+            if (recent.length > 0) {
+                container.classList.remove('d-none');
+                list.innerHTML = recent.map(e => `<button type="button" class="btn btn-sm btn-light p-1 border-0 emoji-item" onclick="insertEmoji('${e}')">${e}</button>`).join('');
+            } else {
+                container.classList.add('d-none');
+            }
+        }
+
+        const pickerBtn = document.getElementById('emojiPickerBtn');
+        if (pickerBtn) {
+            pickerBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleEmojiPicker();
+            });
+        }
+
+        // Close picker when clicking outside
+        document.addEventListener('click', (e) => {
+            const p = document.getElementById('emojiPicker');
+            if (p && !p.classList.contains('d-none') && !p.contains(e.target)) {
+                p.classList.add('d-none');
+            }
+        });
     </script>
 <?php include __DIR__ . '/../../includes/layout/app_end.php'; ?>
