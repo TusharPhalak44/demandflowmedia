@@ -683,6 +683,17 @@ if ($format === 'html') {
 }
 ?>
 <?php if ($format === 'html' && $standalone): ?>
+<style>
+    .btn-linkedin {
+        background-color: #0077b5 !important;
+        border-color: #0077b5 !important;
+        color: #fff !important;
+    }
+    .btn-linkedin:hover {
+        background-color: #005582 !important;
+        border-color: #005582 !important;
+    }
+</style>
 <div class="container-fluid py-3">
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
@@ -729,8 +740,8 @@ if ($format === 'html') {
                         </div>
                         <div class="col-12 <?php echo $standalone ? 'mt-3' : 'mt-1'; ?>">
                             <?php if ($linkedin !== ''): ?>
-                                <a class="text-primary me-2" href="<?php echo htmlspecialchars((string)$linkedin); ?>" target="_blank" rel="noopener noreferrer" title="LinkedIn">
-                                    <i class="bi bi-linkedin fs-5"></i>
+                                <a class="text-linkedin me-2" href="<?php echo htmlspecialchars((string)$linkedin); ?>" target="_blank" rel="noopener noreferrer" title="LinkedIn">
+                                    <i class="bi bi-linkedin fs-5" style="color: #0077b5;"></i>
                                 </a>
                             <?php endif; ?>
                         </div>
@@ -763,13 +774,13 @@ if ($format === 'html') {
                         <div class="col-12 <?php echo $standalone ? 'mt-2' : 'mt-1'; ?>">
                             <div class="d-flex flex-wrap gap-2">
                                 <?php if ($companyLinkedin !== ''): ?>
-                                    <a class="text-primary" href="<?php echo htmlspecialchars((string)$companyLinkedin); ?>" target="_blank" rel="noopener noreferrer" title="Company LinkedIn">
-                                        <i class="bi bi-linkedin fs-5"></i>
+                                    <a class="text-linkedin" href="<?php echo htmlspecialchars((string)$companyLinkedin); ?>" target="_blank" rel="noopener noreferrer" title="Company LinkedIn">
+                                        <i class="bi bi-linkedin fs-5" style="color: #0077b5;"></i>
                                     </a>
                                 <?php endif; ?>
                                 <?php if ($companyWebsite !== ''): ?>
                                     <a class="text-info" href="<?php echo htmlspecialchars((string)$companyWebsite); ?>" target="_blank" rel="noopener noreferrer" title="Company Website">
-                                        <i class="bi bi-globe fs-5"></i>
+                                        <i class="bi bi-browser-safari fs-5"></i>
                                     </a>
                                 <?php endif; ?>
                             </div>

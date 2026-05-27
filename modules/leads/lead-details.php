@@ -312,6 +312,29 @@ foreach ($schemaFields as $f) {
 
 ?>
 <?php $pageTitle = 'Lead Details'; include __DIR__ . '/../../includes/layout/app_start.php'; ?>
+<style>
+    .btn-linkedin {
+        background-color: #0077b5 !important;
+        border-color: #0077b5 !important;
+        color: #fff !important;
+    }
+    .btn-linkedin:hover {
+        background-color: #005582 !important;
+        border-color: #005582 !important;
+    }
+    .website-icon-advanced {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-right: 8px;
+    }
+</style>
 <div class="container-fluid px-0">
     <?php if (isset($_GET['qa_updated']) && (string)$_GET['qa_updated'] === '1'): ?>
         <div class="alert alert-success border-0 shadow-sm mb-3">QA status updated.</div>
@@ -361,7 +384,7 @@ foreach ($schemaFields as $f) {
                             <div class="text-muted small">Prospect LinkedIn</div>
                             <?php $li = trim((string)($pickFromSubmission(['linkedin_link','linkedin_profile','linkedin_url','prospect_linkedin','prospect_linkedin_link','prospect_linkedin_url']) ?? ($lead['linkedin_link'] ?? ''))); ?>
                             <?php if ($li !== ''): ?>
-                                <a class="btn btn-outline-secondary btn-sm" href="<?php echo htmlspecialchars($li); ?>" target="_blank" rel="noopener noreferrer">
+                                <a class="btn btn-linkedin btn-sm rounded-pill px-3 shadow-sm" href="<?php echo htmlspecialchars($li); ?>" target="_blank" rel="noopener noreferrer">
                                     <i class="bi bi-linkedin me-1"></i>Open Profile
                                 </a>
                             <?php else: ?>
@@ -406,7 +429,7 @@ foreach ($schemaFields as $f) {
                             <div class="text-muted small">Company LinkedIn</div>
                             <?php $cli = trim((string)($pickFromSubmission(['company_linkedin','company_linkedin_url','company_linkedin_link','companylinkedin','companylinkedinurl']) ?? ($lead['company_linkedin'] ?? ''))); ?>
                             <?php if ($cli !== ''): ?>
-                                <a class="btn btn-outline-secondary btn-sm" href="<?php echo htmlspecialchars($cli); ?>" target="_blank" rel="noopener noreferrer">
+                                <a class="btn btn-linkedin btn-sm rounded-pill px-3 shadow-sm" href="<?php echo htmlspecialchars($cli); ?>" target="_blank" rel="noopener noreferrer">
                                     <i class="bi bi-linkedin me-1"></i>Open Page
                                 </a>
                             <?php else: ?>
@@ -414,9 +437,19 @@ foreach ($schemaFields as $f) {
                             <?php endif; ?>
                         </div>
                         <div class="col-12">
-                            <div class="text-muted small">Company Website</div>
+                            <div class="text-muted small mb-2">Company Website</div>
                             <?php if ($companyWebsite !== ''): ?>
-                                <?php echo renderUrlPreviewCard($companyWebsite, 'Company Website', 'Open Website'); ?>
+                                <div class="d-flex align-items-center bg-light p-2 rounded-3 border">
+                                    <div class="website-icon-advanced">
+                                        <i class="bi bi-browser-safari fs-5"></i>
+                                    </div>
+                                    <div class="flex-grow-1 min-width-0">
+                                        <div class="fw-bold small text-dark text-truncate">Official Website</div>
+                                        <a href="<?php echo htmlspecialchars($companyWebsite); ?>" target="_blank" class="x-small text-primary text-decoration-none d-block text-truncate">
+                                            <?php echo htmlspecialchars($companyWebsite); ?> <i class="bi bi-box-arrow-up-right ms-1"></i>
+                                        </a>
+                                    </div>
+                                </div>
                             <?php else: ?>
                                 <div class="fw-semibold">—</div>
                             <?php endif; ?>
@@ -459,12 +492,12 @@ foreach ($schemaFields as $f) {
                                 <div class="<?php echo $colClass; ?>">
                                     <div class="text-muted small"><?php echo htmlspecialchars($fr['label']); ?></div>
                                     <?php if ($isFile): ?>
-                                        <a class="link-primary fw-semibold" href="<?php echo htmlspecialchars($open); ?>" target="_blank">Open File</a>
-                                    <?php elseif ($isUrl): ?>
-                                        <a class="link-primary fw-semibold" href="<?php echo htmlspecialchars($open); ?>" target="_blank">Open Link</a>
-                                    <?php else: ?>
-                                        <div class="fw-semibold"><?php echo nl2br(htmlspecialchars($vs !== '' ? $vs : '—')); ?></div>
-                                    <?php endif; ?>
+                                    <a class="link-primary fw-semibold text-decoration-none" href="<?php echo htmlspecialchars($open); ?>" target="_blank"><i class="bi bi-file-earmark-arrow-down me-1"></i>Open File</a>
+                                <?php elseif ($isUrl): ?>
+                                    <a class="link-primary fw-semibold text-decoration-none" href="<?php echo htmlspecialchars($open); ?>" target="_blank"><i class="bi bi-box-arrow-up-right me-1"></i>Open Link</a>
+                                <?php else: ?>
+                                    <div class="fw-semibold"><?php echo nl2br(htmlspecialchars($vs !== '' ? $vs : '—')); ?></div>
+                                <?php endif; ?>
                                 </div>
                             <?php endforeach; ?>
                         </div>

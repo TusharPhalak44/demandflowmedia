@@ -7203,21 +7203,22 @@ function renderUrlPreviewCard(string $url, string $fallbackTitle, string $fallba
     if ($title === '') $title = $fallbackTitle;
     $showDesc = $desc !== '';
 
-    $icon = '<div class="bg-light border rounded d-flex align-items-center justify-content-center" style="width:56px;height:56px;"><i class="bi bi-link-45deg"></i></div>';
+    $icon = '<div class="bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded d-flex align-items-center justify-content-center" style="width:56px;height:56px;"><i class="bi bi-link-45deg fs-4 text-primary"></i></div>';
     $thumb = $img !== '' ? '<img src="'.htmlspecialchars($img).'" class="rounded border" style="width:56px;height:56px;object-fit:cover;" alt="">' : $icon;
 
-    $html = '<div class="card border-0 shadow-sm mt-2">'
+    $html = '<div class="card border-0 bg-light shadow-sm mt-2 overflow-hidden" style="max-width: 450px;">'
         .'<div class="card-body p-2">'
-        .'<div class="d-flex gap-2 align-items-start">'
+        .'<div class="d-flex gap-3 align-items-start">'
         .'<div class="flex-shrink-0">'.$thumb.'</div>'
         .'<div class="flex-grow-1" style="min-width:0;">'
-        .'<div class="fw-semibold small text-truncate">'.htmlspecialchars($title).'</div>';
+        .'<div class="fw-bold small text-dark text-truncate mb-0">'.htmlspecialchars($title).'</div>';
     if ($showDesc) {
-        $html .= '<div class="text-muted small" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'.htmlspecialchars($desc).'</div>';
+        $html .= '<div class="text-muted x-small mb-1" style="display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;">'.htmlspecialchars($desc).'</div>';
     }
-    $html .= '<a href="'.htmlspecialchars($final).'" target="_blank" rel="noopener" class="small text-decoration-none">'.$fallbackLabel.'</a>'
-        .'<div class="text-muted small text-truncate">'.htmlspecialchars($final).'</div>'
-        .'</div></div></div></div>';
+    $html .= '<div class="d-flex align-items-center gap-2">'
+        .'<a href="'.htmlspecialchars($final).'" target="_blank" rel="noopener" class="btn btn-xs btn-primary rounded-pill px-2 py-0 fw-bold" style="font-size: 0.65rem;"><i class="bi bi-box-arrow-up-right me-1"></i>'.$fallbackLabel.'</a>'
+        .'<div class="text-muted x-small text-truncate opacity-75">'.htmlspecialchars($final).'</div>'
+        .'</div></div></div></div></div>';
     return $html;
 }
 
