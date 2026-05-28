@@ -190,6 +190,64 @@ function loginUser($username, $password) {
         
         // Verify password
         if (password_verify($password, $user['password'])) {
+            $enabled = (string)(getAppSetting('security.ip_access.enabled', '0') ?? '0');
+            if ($enabled === '1') {
+                $uid = (int)($user['id'] ?? 0);
+                $role = (string)($user['role'] ?? '');
+                if ($uid > 0) {
+                    $policy = getUserIpAccessPolicy($uid);
+                    if (($policy['mode'] ?? 'open') === 'static') {
+                        $bypassRaw = (string)(getAppSetting('security.ip_access.bypass_roles', '') ?? '');
+                        $bypassRaw = str_replace(["\r\n", "\r"], "\n", $bypassRaw);
+                        $bypassParts = array_filter(array_map('trim', preg_split('/[,\n]+/', $bypassRaw) ?: []));
+                        $bypassRoles = array_map('strtolower', $bypassParts);
+                        if ($role === '' || !in_array(strtolower($role), $bypassRoles, true)) {
+                            $trustXff = (string)(getAppSetting('security.ip_access.trust_xff', '0') ?? '0');
+                            $ipEffective = '';
+                            $xffFirst = '';
+                            if ($trustXff === '1') {
+                                $xff = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? '');
+                                if ($xff !== '') {
+                                    $parts = array_map('trim', explode(',', $xff));
+                                    $cand = (string)($parts[0] ?? '');
+                                    $canon = function_exists('canonicalizeIp') ? canonicalizeIp($cand) : null;
+                                    if ($canon !== null) $xffFirst = $canon;
+                                }
+                            }
+                            if ($xffFirst !== '') $ipEffective = $xffFirst;
+                            if ($ipEffective === '') {
+                                $cand = (string)($_SERVER['REMOTE_ADDR'] ?? '');
+                                $canon = function_exists('canonicalizeIp') ? canonicalizeIp($cand) : null;
+                                if ($canon !== null) $ipEffective = $canon;
+                            }
+
+                            $allowLocalBypass = (string)(getAppSetting('security.ip_access.allow_localhost_bypass', '0') ?? '0') === '1';
+                            if (!$allowLocalBypass || !in_array($ipEffective, ['127.0.0.1','::1'], true)) {
+                                $allowed = $policy['allowed_ips'] ?? [];
+                                if (!is_array($allowed)) $allowed = [];
+                                $reason = '';
+                                if ($ipEffective === '') $reason = 'IP could not be detected';
+                                elseif (empty($allowed)) $reason = 'No allowed IPs configured for this user';
+                                elseif (!isIpAllowedByPolicy($ipEffective, $allowed)) $reason = 'Your IP is not in the allowed list';
+                                if ($reason !== '') {
+                                    $_SESSION['login_error'] = 'ip_restricted';
+                                    $_SESSION['ip_restricted_context'] = [
+                                        'ip' => $ipEffective,
+                                        'user_id' => $uid,
+                                        'role' => $role,
+                                        'time' => time(),
+                                        'reason' => $reason,
+                                        'trust_xff' => $trustXff,
+                                        'xff_first' => $xffFirst,
+                                    ];
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Remove password from array before storing in session
             unset($user['password']);
             
@@ -213,7 +271,8 @@ function loginUser($username, $password) {
             if ($stmt) {
                 $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
                 $userId = (int)($user['id'] ?? 0);
-                $stmt->bind_param("iss", $userId, $ip, $userAgent);
+                $ipLog = isset($ipEffective) && is_string($ipEffective) && $ipEffective !== '' ? $ipEffective : $ip;
+                $stmt->bind_param("iss", $userId, $ipLog, $userAgent);
                 $stmt->execute();
                 $stmt->close();
             }
@@ -753,7 +812,11 @@ function requireLogin() {
     }
 
     $script = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
-    if ($script !== 'ip-restricted.php' && $script !== 'logout.php') {
+    $path = (string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    $pathLower = strtolower($path);
+    $isIpRestrictedRoute = str_contains($pathLower, '/modules/auth/ip-restricted');
+    $isLogoutRoute = str_contains($pathLower, '/modules/auth/logout') || $script === 'logout.php';
+    if (!$isIpRestrictedRoute && !$isLogoutRoute) {
         $enabled = (string)(getAppSetting('security.ip_access.enabled', '0') ?? '0');
         if ($enabled === '1') {
             $user = getCurrentUser() ?: [];
@@ -776,13 +839,15 @@ function requireLogin() {
                         if ($xff !== '') {
                             $parts = array_map('trim', explode(',', $xff));
                             $cand = (string)($parts[0] ?? '');
-                            if ($cand !== '' && filter_var($cand, FILTER_VALIDATE_IP)) $xffFirst = $cand;
+                            $canon = function_exists('canonicalizeIp') ? canonicalizeIp($cand) : null;
+                            if ($canon !== null) $xffFirst = $canon;
                         }
                     }
                     if ($xffFirst !== '') $ip = $xffFirst;
                     if ($ip === '') {
                         $cand = (string)($_SERVER['REMOTE_ADDR'] ?? '');
-                        if ($cand !== '' && filter_var($cand, FILTER_VALIDATE_IP)) $ip = $cand;
+                        $canon = function_exists('canonicalizeIp') ? canonicalizeIp($cand) : null;
+                        if ($canon !== null) $ip = $canon;
                     }
 
                     $allowLocalBypass = (string)(getAppSetting('security.ip_access.allow_localhost_bypass', '0') ?? '0') === '1';

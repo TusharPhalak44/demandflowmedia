@@ -8497,6 +8497,16 @@ function ensureUserIpAccessSchema(): void {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
+function canonicalizeIp(string $ip): ?string {
+    $ip = trim($ip);
+    if ($ip === '' || !filter_var($ip, FILTER_VALIDATE_IP)) return null;
+    $bin = @inet_pton($ip);
+    if ($bin === false) return null;
+    $txt = @inet_ntop($bin);
+    if (!is_string($txt) || $txt === '') return null;
+    return $txt;
+}
+
 function parseAllowedIpList(?string $raw): array {
     $raw = (string)$raw;
     $raw = str_replace(["\r\n", "\r"], "\n", $raw);
@@ -8505,20 +8515,22 @@ function parseAllowedIpList(?string $raw): array {
     $out = [];
     foreach ($parts as $p) {
         if ($p === '') continue;
-        if (filter_var($p, FILTER_VALIDATE_IP)) {
-            $out[$p] = true;
+        $canon = canonicalizeIp($p);
+        if ($canon !== null) {
+            $out[$canon] = true;
             continue;
         }
         if (str_contains($p, '/')) {
             $cidr = explode('/', $p, 2);
             $baseIp = trim((string)($cidr[0] ?? ''));
             $prefix = trim((string)($cidr[1] ?? ''));
-            if ($baseIp !== '' && $prefix !== '' && ctype_digit($prefix) && filter_var($baseIp, FILTER_VALIDATE_IP)) {
+            $baseCanon = canonicalizeIp($baseIp);
+            if ($baseCanon !== null && $prefix !== '' && ctype_digit($prefix)) {
                 $prefixInt = (int)$prefix;
-                $isV6 = str_contains($baseIp, ':');
+                $isV6 = str_contains($baseCanon, ':');
                 $max = $isV6 ? 128 : 32;
                 if ($prefixInt >= 0 && $prefixInt <= $max) {
-                    $out[$baseIp . '/' . $prefixInt] = true;
+                    $out[$baseCanon . '/' . $prefixInt] = true;
                 }
             }
             continue;
@@ -8583,16 +8595,24 @@ function ipMatchesWildcard(string $ip, string $pattern): bool {
 }
 
 function isIpAllowedByPolicy(string $ip, array $allowedRules): bool {
-    $ip = trim($ip);
-    if ($ip === '' || !filter_var($ip, FILTER_VALIDATE_IP)) return false;
+    $ipCanon = canonicalizeIp($ip);
+    if ($ipCanon === null) return false;
+    $ipBin = @inet_pton($ipCanon);
+    if ($ipBin === false) return false;
     foreach ($allowedRules as $rule) {
         $r = trim((string)$rule);
         if ($r === '') continue;
-        if ($r === $ip) return true;
+        $rCanon = canonicalizeIp($r);
+        if ($rCanon !== null) {
+            if (($ipCanon === '127.0.0.1' || $ipCanon === '::1') && ($rCanon === '127.0.0.1' || $rCanon === '::1')) return true;
+            $rBin = @inet_pton($rCanon);
+            if ($rBin !== false && $rBin === $ipBin) return true;
+            continue;
+        }
         if (str_contains($r, '/')) {
-            if (ipMatchesCidr($ip, $r)) return true;
+            if (ipMatchesCidr($ipCanon, $r)) return true;
         } elseif (str_contains($r, '*')) {
-            if (ipMatchesWildcard($ip, $r)) return true;
+            if (ipMatchesWildcard($ipCanon, $r)) return true;
         }
     }
     return false;
@@ -8619,9 +8639,8 @@ function setUserIpAccessPolicy(int $userId, string $mode, ?string $allowedIpsRaw
     $userId = (int)$userId;
     if ($userId <= 0) return false;
     ensureUserIpAccessSchema();
-    $mode = strtolower(trim($mode));
-    if ($mode !== 'static') $mode = 'open';
     $allowedList = parseAllowedIpList($allowedIpsRaw);
+    $mode = !empty($allowedList) ? 'static' : 'open';
     $allowed = implode("\n", $allowedList);
     $conn = getDbConnection();
     $stmt = $conn->prepare("INSERT INTO user_ip_access (user_id, mode, allowed_ips) VALUES (?,?,?) ON DUPLICATE KEY UPDATE mode = VALUES(mode), allowed_ips = VALUES(allowed_ips), updated_at = NOW()");

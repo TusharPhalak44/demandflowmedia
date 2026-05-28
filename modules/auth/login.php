@@ -123,6 +123,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     case 'too_many_attempts':
                         $error = 'Too many login attempts. Please wait 15 minutes and try again.';
                         break;
+                    case 'ip_restricted':
+                        $ctx = is_array($_SESSION['ip_restricted_context'] ?? null) ? $_SESSION['ip_restricted_context'] : [];
+                        $ipTxt = trim((string)($ctx['ip'] ?? ''));
+                        $error = $ipTxt !== '' ? ('Access restricted for your IP: ' . $ipTxt . '. Please contact the administrator.') : 'Access restricted for your IP. Please contact the administrator.';
+                        unset($_SESSION['ip_restricted_context']);
+                        break;
                     case 'system_error':
                         $error = 'A system error occurred. Please contact the administrator.';
                         break;

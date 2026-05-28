@@ -97,9 +97,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'lead.created' => 'New lead uploaded',
                 'lead.updated' => 'Lead updated',
                 'lead.status_updated' => 'Lead status updated',
+                'client.lead.delivered' => 'Client: Lead delivered',
                 'chat.message' => 'New chat message',
                 'chat.group_message' => 'New group message',
+                'chat.added_to_group' => 'Chat: added to group',
                 'sales.followup_reminder' => 'Sales follow-up reminder',
+                'sales.followup.added' => 'Sales: follow-up added',
+                'sales.followup.updated' => 'Sales: follow-up updated',
                 'invoice.created' => 'Invoice created',
                 'invoice.status_changed' => 'Invoice status updated',
                 'invoice.paid' => 'Invoice marked paid',
@@ -273,6 +277,9 @@ if ($detectedXff !== '') {
     $parts = array_map('trim', explode(',', $detectedXff));
     $detectedXffFirst = (string)($parts[0] ?? '');
 }
+$detectedRemoteIpCanon = function_exists('canonicalizeIp') ? canonicalizeIp($detectedRemoteIp) : null;
+$detectedXffFirstCanon = function_exists('canonicalizeIp') ? canonicalizeIp($detectedXffFirst) : null;
+$detectedEffectiveIp = $trustXff && $detectedXffFirstCanon ? $detectedXffFirstCanon : ($detectedRemoteIpCanon ?: '');
 $uiThemeDefault = (string)(getAppSetting('ui.theme.default', 'light') ?? 'light');
 $uiThemeDefault = $uiThemeDefault === 'dark' ? 'dark' : 'light';
 $uiAllowOverride = (string)(getAppSetting('ui.theme.allow_user_override', '1') ?? '1') === '1';
@@ -299,9 +306,13 @@ $notifEventTypes = [
     'lead.created' => 'New lead uploaded',
     'lead.updated' => 'Lead updated',
     'lead.status_updated' => 'Lead status updated',
+    'client.lead.delivered' => 'Client: Lead delivered',
     'chat.message' => 'New chat message',
     'chat.group_message' => 'New group message',
+    'chat.added_to_group' => 'Chat: added to group',
     'sales.followup_reminder' => 'Sales follow-up reminder',
+    'sales.followup.added' => 'Sales: follow-up added',
+    'sales.followup.updated' => 'Sales: follow-up updated',
     'invoice.created' => 'Invoice created',
     'invoice.status_changed' => 'Invoice status updated',
     'invoice.paid' => 'Invoice marked paid',
@@ -405,12 +416,15 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                                     <div class="border rounded p-3 bg-light">
                                         <div class="fw-semibold mb-1"><i class="bi bi-router me-1"></i>Your current request IP</div>
                                         <div class="small text-muted">
-                                            Remote: <span class="fw-semibold text-dark"><?php echo htmlspecialchars($detectedRemoteIp !== '' ? $detectedRemoteIp : 'unknown'); ?></span>
-                                            <?php if ($detectedXffFirst !== ''): ?>
-                                                · XFF: <span class="fw-semibold text-dark"><?php echo htmlspecialchars($detectedXffFirst); ?></span>
+                                            Remote: <span class="fw-semibold text-dark"><?php echo htmlspecialchars($detectedRemoteIpCanon !== null ? $detectedRemoteIpCanon : ($detectedRemoteIp !== '' ? $detectedRemoteIp : 'unknown')); ?></span>
+                                            <?php if ($detectedXffFirstCanon !== null): ?>
+                                                · XFF: <span class="fw-semibold text-dark"><?php echo htmlspecialchars($detectedXffFirstCanon); ?></span>
                                             <?php endif; ?>
                                         </div>
-                                        <div class="small text-muted mt-1">Tip: If you open via http://localhost, Remote is usually 127.0.0.1. To test real LAN IP, open via http://YOUR-LAN-IP/leads</div>
+                                        <div class="small text-muted mt-1">
+                                            Effective (enforced): <span class="fw-semibold text-dark"><?php echo htmlspecialchars($detectedEffectiveIp !== '' ? $detectedEffectiveIp : 'unknown'); ?></span>
+                                            · Tip: If you open via http://localhost, Remote can be 127.0.0.1 or ::1. To test real LAN IP, open via http://YOUR-LAN-IP/leads
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="col-12">
@@ -458,7 +472,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                                 <input type="hidden" name="action" value="save_user_ip">
                                 <div class="col-12">
                                     <label class="form-label small text-muted">User</label>
-                                    <select class="form-select form-select-sm" name="user_id" onchange="location.href='settings.php?user_id='+this.value">
+                                    <select class="form-select form-select-sm" name="user_id" onchange="(function(v){var base=<?php echo htmlspecialchars(json_encode(rtrim((string)appBasePath(), '/') . '/modules/admin/settings'), ENT_QUOTES, 'UTF-8'); ?>; window.location.href = v ? (base + '?user_id=' + encodeURIComponent(v)) : base; })(this.value)">
                                         <option value="">Select user</option>
                                         <?php foreach ($users as $u): ?>
                                             <?php $uid = (int)($u['id'] ?? 0); ?>
@@ -478,12 +492,70 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                                 <div class="col-md-8">
                                     <label class="form-label small text-muted">Allowed IPs (one per line)</label>
                                     <textarea class="form-control form-control-sm" name="allowed_ips" rows="3" placeholder="e.g. 203.0.113.10&#10;or 203.0.113.0/24&#10;or 192.168.1.*" <?php echo $selectedUserId > 0 ? '' : 'disabled'; ?>><?php echo htmlspecialchars($selectedAllowed); ?></textarea>
-                                    <div class="text-muted small mt-1">Supports exact IP, CIDR (x.x.x.x/24), and wildcard (192.168.1.*).</div>
+                                    <div class="text-muted small mt-1">Supports exact IP, CIDR (x.x.x.x/24), and wildcard (192.168.1.*). If you enter any IPs, the user is enforced as Static IP.</div>
                                 </div>
                                 <div class="col-12 d-flex justify-content-end">
                                     <button class="btn btn-outline-primary btn-sm" type="submit" <?php echo $selectedUserId > 0 ? '' : 'disabled'; ?>><i class="bi bi-save2 me-1"></i>Save User Policy</button>
                                 </div>
                             </form>
+
+                            <?php if (!empty($policyRows)): ?>
+                                <div class="mt-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="fw-semibold">Recent IP Policies</div>
+                                        <div class="text-muted small">Showing latest <?php echo number_format(count($policyRows)); ?></div>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>User</th>
+                                                    <th style="width:110px;">Mode</th>
+                                                    <th style="width:120px;" class="text-center">Allowed</th>
+                                                    <th style="width:190px;">Updated</th>
+                                                    <th style="width:90px;" class="text-end">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach ($policyRows as $pr): ?>
+                                                    <?php
+                                                        $uid = (int)($pr['user_id'] ?? 0);
+                                                        $name = trim((string)($pr['full_name'] ?? ''));
+                                                        $role = trim((string)($pr['role'] ?? ''));
+                                                        $mode = strtolower(trim((string)($pr['mode'] ?? 'open')));
+                                                        if ($mode !== 'static') $mode = 'open';
+                                                        $rawAllowed = (string)($pr['allowed_ips'] ?? '');
+                                                        $allowedList = parseAllowedIpList($rawAllowed);
+                                                        $allowedCount = count($allowedList);
+                                                        $updatedAt = (string)($pr['updated_at'] ?? '');
+                                                        $label = $name !== '' ? $name : ('User #' . $uid);
+                                                        if ($role !== '') $label .= ' · ' . $role;
+                                                    ?>
+                                                    <tr>
+                                                        <td class="fw-semibold"><?php echo htmlspecialchars($label); ?></td>
+                                                        <td>
+                                                            <?php if ($mode === 'static'): ?>
+                                                                <span class="badge text-bg-primary">Static</span>
+                                                            <?php else: ?>
+                                                                <span class="badge text-bg-secondary">Open</span>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <span class="badge text-bg-light border"><?php echo number_format($allowedCount); ?></span>
+                                                        </td>
+                                                        <td class="text-muted small"><?php echo htmlspecialchars($updatedAt !== '' ? $updatedAt : '-'); ?></td>
+                                                        <td class="text-end">
+                                                            <?php if ($uid > 0): ?>
+                                                                <a class="btn btn-sm btn-light border" href="settings.php?user_id=<?php echo $uid; ?>">Edit</a>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
