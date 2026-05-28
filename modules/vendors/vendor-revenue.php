@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
-requireRole(['admin','vendor_admin','vendor_user']);
+requirePermissionOrRole('revenue.access', ['admin','vendor_admin','vendor_user']);
 ensureCsrfToken();
 
 $user = getCurrentUser();
@@ -26,8 +26,7 @@ if ($vendorId <= 0 && !isAdmin()) {
 
 $dateFrom = trim((string)($_GET['date_from'] ?? ''));
 $dateTo = trim((string)($_GET['date_to'] ?? ''));
-$qa = trim((string)($_GET['qa'] ?? 'Approved'));
-if ($qa === '') $qa = 'Approved';
+$billableStatus = 'Accepted';
 
 $conn = getDbConnection();
 $stmt = $conn->prepare("SELECT c.id, c.name, d.code, m.vendor_cpl, m.vendor_cpl_currency FROM campaigns c JOIN campaign_details d ON d.campaign_id=c.id JOIN vendor_campaign_map m ON m.campaign_id=c.id WHERE m.vendor_id=? ORDER BY c.name");
@@ -41,9 +40,8 @@ $totalApproved = 0;
 $totalRevenue = 0.0;
 foreach ($campaigns as $c) {
     $cid = (int)$c['id'];
-    $qaStatus = in_array($qa, ['Approved','Qualified','Rejected','Disqualified','Pending'], true) ? $qa : 'Approved';
-    $where = "campaign_id = ? AND vendor_id = ? AND qa_status = ?";
-    $params = [$cid, $vendorId, $qaStatus];
+    $where = "campaign_id = ? AND vendor_id = ? AND client_delivery_status = ?";
+    $params = [$cid, $vendorId, $billableStatus];
     $types = 'iis';
     if ($dateFrom !== '') { $where .= " AND created_at >= ?"; $params[] = $dateFrom.' 00:00:00'; $types .= 's'; }
     if ($dateTo !== '') { $where .= " AND created_at <= ?"; $params[] = $dateTo.' 23:59:59'; $types .= 's'; }
@@ -58,8 +56,7 @@ foreach ($campaigns as $c) {
     $totalRevenue += $rev;
 }
 
-$qaStatus = in_array($qa, ['Approved','Qualified','Rejected','Disqualified','Pending'], true) ? $qa : 'Approved';
-$params = [$vendorId, $qaStatus];
+$params = [$vendorId, $billableStatus];
 $types = 'is';
 $dateWhere = '';
 if ($dateFrom !== '') { $dateWhere .= " AND l.created_at >= ?"; $params[] = $dateFrom.' 00:00:00'; $types .= 's'; }
@@ -70,14 +67,14 @@ if (($_GET['export'] ?? '') === 'csv') {
     $fn = 'vendor_revenue_'.$vendorId.'_'.date('Ymd_His').'.csv';
     header('Content-Disposition: attachment; filename="'.$fn.'"');
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['Campaign', 'Code', 'QA Status', 'Leads', 'CPL', 'Currency', 'Revenue', 'From', 'To']);
+    fputcsv($out, ['Campaign', 'Code', 'Client Delivery Status', 'Leads', 'CPL', 'Currency', 'Revenue', 'From', 'To']);
     foreach ($campaigns as $c) {
         $cid = (int)$c['id'];
         $s = $stats[$cid] ?? ['approved'=>0,'revenue'=>0];
         fputcsv($out, [
             (string)($c['name'] ?? ''),
             (string)($c['code'] ?? ''),
-            $qaStatus,
+            $billableStatus,
             (int)($s['approved'] ?? 0),
             (float)($c['vendor_cpl'] ?? 0),
             (string)($c['vendor_cpl_currency'] ?? ''),
@@ -86,7 +83,7 @@ if (($_GET['export'] ?? '') === 'csv') {
             $dateTo,
         ]);
     }
-    fputcsv($out, ['TOTAL', '', $qaStatus, $totalApproved, '', 'USD', $totalRevenue, $dateFrom, $dateTo]);
+    fputcsv($out, ['TOTAL', '', $billableStatus, $totalApproved, '', 'USD', $totalRevenue, $dateFrom, $dateTo]);
     fclose($out);
     exit;
 }
@@ -96,7 +93,7 @@ $stmt = $conn->prepare("
     SELECT DATE(l.created_at) AS dt, COUNT(*) AS leads, SUM(m.vendor_cpl) AS revenue
     FROM leads l
     JOIN vendor_campaign_map m ON m.campaign_id = l.campaign_id AND m.vendor_id = l.vendor_id
-    WHERE l.vendor_id = ? AND l.qa_status = ? $dateWhere
+    WHERE l.vendor_id = ? AND l.client_delivery_status = ? $dateWhere
     GROUP BY dt
     ORDER BY dt
 ");
@@ -115,7 +112,7 @@ $stmt = $conn->prepare("
     SELECT YEARWEEK(l.created_at, 1) AS yw, MIN(DATE(l.created_at)) AS week_start, COUNT(*) AS leads, SUM(m.vendor_cpl) AS revenue
     FROM leads l
     JOIN vendor_campaign_map m ON m.campaign_id = l.campaign_id AND m.vendor_id = l.vendor_id
-    WHERE l.vendor_id = ? AND l.qa_status = ? $dateWhere
+    WHERE l.vendor_id = ? AND l.client_delivery_status = ? $dateWhere
     GROUP BY yw
     ORDER BY yw
 ");
@@ -137,12 +134,12 @@ include __DIR__ . '/../../includes/layout/app_start.php';
   <div class="d-flex justify-content-between align-items-start mb-3">
     <div>
       <div class="h3 mb-1">Vendor Revenue</div>
-      <div class="text-muted small">Revenue based on <?php echo htmlspecialchars($qa); ?> leads</div>
+      <div class="text-muted small">Revenue based on billable leads (Client Delivery Status: <?php echo htmlspecialchars($billableStatus); ?>)</div>
     </div>
     <div class="d-flex gap-2">
       <a class="btn btn-light border btn-sm" href="../dashboard/vendor-dashboard.php"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
       <a class="btn btn-light border btn-sm" href="vendor-campaigns.php"><i class="bi bi-megaphone me-1"></i>Campaigns</a>
-      <a class="btn btn-outline-primary btn-sm" href="?vendor_id=<?php echo (int)$vendorId; ?>&qa=<?php echo urlencode($qa); ?>&date_from=<?php echo urlencode($dateFrom); ?>&date_to=<?php echo urlencode($dateTo); ?>&export=csv"><i class="bi bi-download me-1"></i>Export CSV</a>
+      <a class="btn btn-outline-primary btn-sm" href="?vendor_id=<?php echo (int)$vendorId; ?>&date_from=<?php echo urlencode($dateFrom); ?>&date_to=<?php echo urlencode($dateTo); ?>&export=csv"><i class="bi bi-download me-1"></i>Export CSV</a>
     </div>
   </div>
 
@@ -156,12 +153,8 @@ include __DIR__ . '/../../includes/layout/app_start.php';
           </div>
         <?php endif; ?>
         <div class="col-md-2">
-          <label class="form-label small text-muted">QA Status</label>
-          <select class="form-select form-select-sm" name="qa">
-            <?php foreach (['Approved','Qualified','Rejected','Disqualified','Pending'] as $opt): ?>
-              <option value="<?php echo htmlspecialchars($opt); ?>" <?php echo ($qa===$opt)?'selected':''; ?>><?php echo htmlspecialchars($opt); ?></option>
-            <?php endforeach; ?>
-          </select>
+          <label class="form-label small text-muted">Billable Status</label>
+          <input class="form-control form-control-sm" value="<?php echo htmlspecialchars($billableStatus); ?>" readonly>
         </div>
         <div class="col-md-2">
           <label class="form-label small text-muted">From</label>
@@ -181,7 +174,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
   <div class="row g-3 mb-3">
     <div class="col-md-6">
       <div class="card border-0 shadow-sm text-center p-3">
-        <div class="text-muted small fw-semibold text-uppercase">Total <?php echo htmlspecialchars($qa); ?></div>
+        <div class="text-muted small fw-semibold text-uppercase">Total Billable</div>
         <div class="h3 mb-0 mt-1"><?php echo number_format($totalApproved); ?></div>
       </div>
     </div>

@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array
     if (!$leadRow) { echo json_encode(['ok' => false, 'error' => 'Not found']); exit; }
 
     $cds = normalizeClientDeliveryStatus((string)($leadRow['client_delivery_status'] ?? 'Pending'));
-    if (!isAdmin() && $cds !== 'Delivered') {
+    if (!isAdmin() && !in_array($cds, ['Delivered','Accepted','Rejected','In Progress','TBD(To be discussed)'], true)) {
         echo json_encode(['ok' => false, 'error' => 'Tagging allowed only for delivered leads']); exit;
     }
 
@@ -444,6 +444,16 @@ include __DIR__ . '/../../includes/layout/app_start.php';
   #tagLeadTimeline tr:last-child .timeline-badge::after {
     display: none;
   }
+  #tagLeadModal .input-group-lg > .form-select {
+    background-color: transparent;
+    border: 0;
+    box-shadow: none;
+    padding-left: 0;
+    min-height: 48px;
+  }
+  #tagLeadModal .input-group-lg > .form-select:focus {
+    box-shadow: none;
+  }
 </style>
 
 <div class="modal fade" id="tagLeadModal" tabindex="-1" aria-hidden="true">
@@ -474,40 +484,43 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                   Add New Engagement
                 </h6>
                 
-                <!-- Tag Input -->
+                <!-- Tag -->
                 <div class="mb-4">
+                  <label class="form-label x-small fw-bold text-uppercase text-muted tracking-wider">Tag</label>
                   <div class="input-group input-group-lg border rounded-3 overflow-hidden bg-light shadow-none">
                     <span class="input-group-text bg-transparent border-0"><i class="bi bi-tag text-muted"></i></span>
-                    <input class="form-control bg-transparent border-0 ps-0 shadow-none" style="font-size: 1rem;" id="tagLeadInput" placeholder="Enter tag name...">
+                    <select class="form-select bg-transparent border-0 ps-0 shadow-none" style="font-size: 1rem;" id="tagLeadInput">
+                      <option value="">Select tag</option>
+                      <option>New</option>
+                      <option>Contacted</option>
+                      <option>Follow Up</option>
+                      <option>Meeting Booked</option>
+                      <option>No Response</option>
+                      <option>Wrong Contact</option>
+                      <option>Not Interested</option>
+                    </select>
                     <button class="btn btn-primary px-4" type="button" id="tagLeadAddBtn">
                       <i class="bi bi-send-fill"></i>
                     </button>
                   </div>
                 </div>
 
-                <!-- Stage -->
+                <!-- Note -->
                 <div class="mb-4">
-                  <label class="form-label x-small fw-bold text-uppercase text-muted tracking-wider">Lead Stage</label>
+                  <label class="form-label x-small fw-bold text-uppercase text-muted tracking-wider">Internal Note</label>
+                  <textarea class="form-control border-0 bg-light rounded-3 px-3 py-2 shadow-none" id="tagLeadNote" rows="3" placeholder="What happened during this engagement?"></textarea>
+                </div>
+
+                <!-- Lead Status -->
+                <div class="mb-4">
+                  <label class="form-label x-small fw-bold text-uppercase text-muted tracking-wider">Lead Status</label>
                   <select class="form-select border-0 bg-light rounded-3 px-3 py-2 shadow-none" id="tagLeadStage">
-                    <option value="">Select current stage</option>
-                    <option>New</option>
-                    <option>Contacted</option>
-                    <option>Follow Up</option>
-                    <option>Meeting Booked</option>
-                    <option>No Response</option>
-                    <option>Wrong Contact</option>
-                    <option>Not Interested</option>
+                    <option value="">Select lead status</option>
                     <option>Accepted</option>
                     <option>Rejected</option>
                     <option>In Progress</option>
                     <option>TBD(To be discussed)</option>
                   </select>
-                </div>
-
-                <!-- Note -->
-                <div class="mb-4">
-                  <label class="form-label x-small fw-bold text-uppercase text-muted tracking-wider">Internal Note</label>
-                  <textarea class="form-control border-0 bg-light rounded-3 px-3 py-2 shadow-none" id="tagLeadNote" rows="3" placeholder="What happened during this engagement?"></textarea>
                 </div>
 
                 <!-- Quick Presets -->
@@ -548,14 +561,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                   <div class="row g-3 align-items-end">
                     <div class="col-md-5">
                       <select class="form-select form-select-sm border-0 bg-white rounded-3 shadow-sm" id="tagLeadEditStage">
-                        <option value="">Update Stage</option>
-                        <option>New</option>
-                        <option>Contacted</option>
-                        <option>Follow Up</option>
-                        <option>Meeting Booked</option>
-                        <option>No Response</option>
-                        <option>Wrong Contact</option>
-                        <option>Not Interested</option>
+                        <option value="">Update Lead Status</option>
                         <option>Accepted</option>
                         <option>Rejected</option>
                         <option>In Progress</option>
@@ -576,9 +582,11 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                   <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
                       <tr style="border-bottom: 2px solid #f1f3f5;">
-                        <th class="ps-4 py-3 border-0 text-uppercase x-small fw-bold text-muted">Activity</th>
-                        <th class="py-3 border-0 text-uppercase x-small fw-bold text-muted text-center">Stage</th>
-                        <th class="py-3 border-0 text-uppercase x-small fw-bold text-muted text-center">Note</th>
+                        <th class="ps-4 py-3 border-0 text-uppercase x-small fw-bold text-muted">Date</th>
+                        <th class="py-3 border-0 text-uppercase x-small fw-bold text-muted">Activity</th>
+                        <th class="py-3 border-0 text-uppercase x-small fw-bold text-muted">Lead Status</th>
+                        <th class="py-3 border-0 text-uppercase x-small fw-bold text-muted">Tag</th>
+                        <th class="py-3 border-0 text-uppercase x-small fw-bold text-muted">Internal Note</th>
                         <th class="pe-4 py-3 border-0 text-uppercase x-small fw-bold text-muted text-end">By</th>
                       </tr>
                     </thead>
@@ -771,10 +779,10 @@ include __DIR__ . '/../../includes/layout/app_start.php';
     }
   });
 
-  addBtn.addEventListener('click', async () => {
+    addBtn.addEventListener('click', async () => {
     hideErr();
     const name = (inputEl.value || '').trim();
-    if (!name) { showErr('Please specify a tag name.'); return; }
+    if (!name) { showErr('Please select a tag.'); return; }
     addBtn.disabled = true;
     try {
       const note = (noteEl.value || '').trim();
@@ -791,14 +799,17 @@ include __DIR__ . '/../../includes/layout/app_start.php';
   });
 
   if (presetsEl) {
-    const presets = ['Interested','Follow Up','Meeting Booked','No Response','Wrong Contact','Not Interested', 'Accepted', 'Rejected', 'In Progress', 'TBD(To be discussed)'];
+    const presets = ['New','Contacted','Follow Up','Meeting Booked','No Response','Wrong Contact','Not Interested','Accepted','Rejected','In Progress','TBD(To be discussed)'];
     presetsEl.innerHTML = presets.map(p => `<button type="button" class="btn btn-outline-secondary btn-xs rounded-pill px-3" style="font-size: 0.7rem;" data-tag-preset="${esc(p)}">${esc(p)}</button>`).join('');
     presetsEl.addEventListener('click', (e) => {
       const b = e.target.closest('[data-tag-preset]');
       if (!b) return;
       const val = b.getAttribute('data-tag-preset') || '';
-      inputEl.value = val;
-      if (stageEl) stageEl.value = val;
+      if (['Accepted','Rejected','In Progress','TBD(To be discussed)'].includes(val)) {
+        if (stageEl) stageEl.value = val;
+      } else {
+        inputEl.value = val;
+      }
       inputEl.focus();
     });
   }

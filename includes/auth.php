@@ -65,6 +65,60 @@ function isAjaxRequest(): bool {
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/functions.php';
 
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !isAjaxRequest()) {
+    $path = (string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    $pathLower = strtolower($path);
+    $isAuthPage = str_contains($pathLower, '/modules/auth/');
+    $userId = (int)($_SESSION['user']['id'] ?? 0);
+    $postedCsrf = (string)($_POST['csrf_token'] ?? '');
+    $sessionCsrf = (string)($_SESSION['csrf_token'] ?? '');
+    if (!$isAuthPage && $userId > 0 && $postedCsrf !== '' && $sessionCsrf !== '' && hash_equals($sessionCsrf, $postedCsrf)) {
+        $filesSig = [];
+        foreach ($_FILES as $k => $f) {
+            if (!is_array($f)) continue;
+            if (is_array($f['name'] ?? null)) {
+                $filesSig[$k] = ['multi' => true, 'count' => is_array($f['name']) ? count($f['name']) : 0];
+            } else {
+                $filesSig[$k] = [
+                    'name' => (string)($f['name'] ?? ''),
+                    'size' => (int)($f['size'] ?? 0),
+                    'error' => (int)($f['error'] ?? 0),
+                    'type' => (string)($f['type'] ?? ''),
+                ];
+            }
+        }
+        $postCopy = $_POST;
+        unset($postCopy['csrf_token']);
+        $keyBase = json_encode([
+            'u' => $userId,
+            'uri' => (string)($_SERVER['REQUEST_URI'] ?? ''),
+            'post' => $postCopy,
+            'files' => $filesSig,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $hash = hash('sha256', (string)$keyBase);
+        $now = time();
+        if (!isset($_SESSION['__recent_posts']) || !is_array($_SESSION['__recent_posts'])) {
+            $_SESSION['__recent_posts'] = [];
+        }
+        foreach ($_SESSION['__recent_posts'] as $h => $ts) {
+            if (!is_int($ts) || ($now - $ts) > 600) unset($_SESSION['__recent_posts'][$h]);
+        }
+        if (isset($_SESSION['__recent_posts'][$hash]) && ($now - (int)$_SESSION['__recent_posts'][$hash]) < 15) {
+            if (!isset($_SESSION['app_flash_toasts']) || !is_array($_SESSION['app_flash_toasts'])) $_SESSION['app_flash_toasts'] = [];
+            $_SESSION['app_flash_toasts'][] = ['type' => 'warning', 'title' => 'Duplicate submission', 'message' => 'This form was already submitted.'];
+            $redirect = (string)($_SERVER['REQUEST_URI'] ?? '/');
+            $redirect = str_replace(["\r", "\n"], '', $redirect);
+            header('Location: ' . $redirect);
+            exit;
+        }
+        $_SESSION['__recent_posts'][$hash] = $now;
+        if (count($_SESSION['__recent_posts']) > 80) {
+            asort($_SESSION['__recent_posts']);
+            $_SESSION['__recent_posts'] = array_slice($_SESSION['__recent_posts'], -60, 60, true);
+        }
+    }
+}
+
 // Ensure database schema is up to date (once per session to minimize overhead)
 if (!isset($_SESSION['schema_verified_v3'])) {
     ensureDatabaseSchema();
@@ -478,16 +532,100 @@ function getCustomRolesConfig(): array {
     return $out;
 }
 
-function getAccessRolePermissionsConfig(): ?array {
-    static $cache = null;
-    if ($cache !== null) return $cache;
-    if (!function_exists('getAppSetting')) return null;
-    $raw = (string)(getAppSetting('access.role_permissions', '') ?? '');
-    $raw = trim($raw);
-    if ($raw === '') return null;
-    $data = json_decode($raw, true);
-    if (!is_array($data)) return null;
-    $cache = $data;
+function getDefaultAccessRolePermissionsConfig(): array {
+    return [
+        'admin' => ['*'],
+        'director' => ['dashboard.admin','notifications.access','chat.access','admin.settings','admin.analytics','users.internal.manage','clients.users.manage','vendors.users.manage','leads.manage','leads.export','campaigns.manage','campaigns.export','forms.manage','qa.access','qa.assignments','sales.access','clients.access','vendors.access','revenue.access','hr.access','hr.attendance','hr.leaves','hr.payslips','hr.attendance_admin','hr.shifts','hr.payroll'],
+        'manager_director' => ['dashboard.admin','notifications.access','chat.access','admin.analytics','users.internal.manage','clients.users.manage','vendors.users.manage','leads.manage','leads.export','campaigns.manage','campaigns.export','forms.manage','qa.access','qa.assignments','sales.access','clients.access','vendors.access','revenue.access','hr.access','hr.attendance','hr.leaves','hr.payslips','hr.attendance_admin','hr.shifts','hr.payroll'],
+        'operations_director' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.export','leads.entry','leads.bulk_upload','leads.tracking','campaigns.view','campaigns.export','clients.access','vendors.access','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'operations_manager' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.export','leads.entry','leads.bulk_upload','leads.tracking','campaigns.view','campaigns.export','clients.access','vendors.access','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'operations_agent' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.entry','leads.my','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'agent' => ['dashboard.operations','notifications.access','chat.access','leads.entry','leads.my','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'email_marketing_director' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','campaigns.export','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'email_marketing_manager' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','campaigns.export','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'email_marketing_agent' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'email_marketing_executive' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'form_filler' => ['dashboard.marketing','notifications.access','chat.access','leads.entry','leads.marketing','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'qa_director' => ['dashboard.qa','notifications.access','chat.access','qa.access','qa.assignments','leads.view','leads.export','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'qa_manager' => ['dashboard.qa','notifications.access','chat.access','qa.access','qa.assignments','leads.view','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'qa_agent' => ['dashboard.qa','notifications.access','chat.access','qa.access','leads.view','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'qa' => ['dashboard.qa','notifications.access','chat.access','qa.access','leads.view','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'sales_director' => ['dashboard.sales','notifications.access','chat.access','sales.access','campaigns.view','leads.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'sales_manager' => ['dashboard.sales','notifications.access','chat.access','sales.access','campaigns.view','leads.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'sdr' => ['dashboard.sales','notifications.access','chat.access','sales.access','leads.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'client_admin' => ['dashboard.client','notifications.access','leads.view','campaigns.view','clients.users.manage'],
+        'client_sdr' => ['dashboard.client','notifications.access','leads.view','campaigns.view'],
+        'vendor_admin' => ['dashboard.vendor','notifications.access','leads.view','leads.entry','leads.bulk_upload','leads.my','campaigns.view','vendors.users.manage','vendors.access','revenue.access'],
+        'vendor_user' => ['dashboard.vendor','notifications.access','leads.view','leads.entry','leads.bulk_upload','leads.my','campaigns.view'],
+    ];
+}
+
+function getAccessRolePermissionsConfig(): array {
+    if (isset($GLOBALS['__access_role_permissions_cache']) && is_array($GLOBALS['__access_role_permissions_cache'])) {
+        return $GLOBALS['__access_role_permissions_cache'];
+    }
+    $data = null;
+    $loadedFromSetting = false;
+    if (function_exists('getAppSetting')) {
+        $raw = (string)(getAppSetting('access.role_permissions', '') ?? '');
+        $raw = trim($raw);
+        if ($raw !== '') {
+            $tmp = json_decode($raw, true);
+            if (is_array($tmp)) { $data = $tmp; $loadedFromSetting = true; }
+        }
+    }
+    if (!is_array($data)) $data = getDefaultAccessRolePermissionsConfig();
+    $known = function_exists('getKnownRoles') ? getKnownRoles() : [];
+    if (!is_array($known)) $known = [];
+    if (function_exists('getCustomRolesConfig')) {
+        $custom = getCustomRolesConfig();
+        if (is_array($custom)) {
+            foreach ($custom as $rk => $rv) {
+                $rk = normalizeRole((string)$rk);
+                if ($rk !== '' && !in_array($rk, $known, true)) $known[] = $rk;
+            }
+        }
+    }
+    foreach ($known as $rk) {
+        $rk = normalizeRole((string)$rk);
+        if ($rk === '') continue;
+        if (!array_key_exists($rk, $data)) $data[$rk] = [];
+    }
+    if (!isset($data['admin']) || !is_array($data['admin'])) $data['admin'] = ['*'];
+    if (!in_array('*', $data['admin'], true)) $data['admin'] = ['*'];
+
+    if ($loadedFromSetting) {
+        $custom = function_exists('getCustomRolesConfig') ? getCustomRolesConfig() : [];
+        if (!is_array($custom)) $custom = [];
+        $changed = false;
+        foreach ($data as $rk => $list) {
+            $rkNorm = normalizeRole((string)$rk);
+            if ($rkNorm === '' || $rkNorm === 'admin') continue;
+            $scope = 'internal';
+            if (str_starts_with($rkNorm, 'client_')) $scope = 'client';
+            elseif (str_starts_with($rkNorm, 'vendor_')) $scope = 'vendor';
+            elseif (isset($custom[$rkNorm]) && is_array($custom[$rkNorm])) $scope = (string)($custom[$rkNorm]['scope'] ?? 'internal');
+            if ($scope === 'internal') continue;
+            if (!is_array($list)) continue;
+            $next = [];
+            foreach ($list as $p) {
+                $p = trim((string)$p);
+                if ($p === '') continue;
+                if (str_starts_with($p, 'hr.')) continue;
+                $next[] = $p;
+            }
+            $next = array_values(array_unique($next));
+            if ($next !== $list) {
+                $data[$rk] = $next;
+                $changed = true;
+            }
+        }
+        if ($changed && function_exists('setAppSetting')) {
+            setAppSetting('access.role_permissions', json_encode($data, JSON_UNESCAPED_SLASHES));
+        }
+    }
+
+    $GLOBALS['__access_role_permissions_cache'] = $data;
     return $data;
 }
 
@@ -533,6 +671,9 @@ function permissionAliases(string $permission): array {
         foreach ($oldKeys as $ok) {
             if ($permission === $ok) $aliases[] = $newKey;
         }
+    }
+    if (in_array($permission, ['hr.attendance','hr.leaves','hr.payslips'], true)) {
+        $aliases[] = 'hr.access';
     }
     return array_values(array_unique($aliases));
 }
@@ -652,7 +793,7 @@ function requireLogin() {
                     $reason = '';
                     if ($ip === '') $reason = 'IP could not be detected';
                     elseif (empty($allowed)) $reason = 'No allowed IPs configured for this user';
-                    elseif (!in_array($ip, $allowed, true)) $reason = 'Your IP is not in the allowed list';
+                    elseif (!isIpAllowedByPolicy($ip, $allowed)) $reason = 'Your IP is not in the allowed list';
                     if ($reason !== '') {
                         $_SESSION['ip_restricted_context'] = [
                             'ip' => $ip,
@@ -681,56 +822,49 @@ function requireLogin() {
  */
 function requireRole($roles) {
     requireLogin();
-
-    $cfg = getAccessRolePermissionsConfig();
-    if ($cfg !== null) {
-        $permission = inferPermissionKeyForRequest();
-        if ($permission !== null) {
-            if (userHasPermission($permission)) {
-                return;
-            }
-            $user = getCurrentUser();
-            $userId = $user ? $user['id'] : 'unknown';
-            error_log("Unauthorized access attempt by user $userId for permission: $permission on " . $_SERVER['REQUEST_URI']);
-            if (isAjaxRequest()) {
-                header('Content-Type: application/json; charset=utf-8');
-                http_response_code(403);
-                echo json_encode(['success' => false, 'message' => 'You are not authorized to perform this action.']);
-                exit;
-            }
-            $_SESSION['access_denied_context'] = [
-                'uri' => (string)($_SERVER['REQUEST_URI'] ?? ''),
-                'required_permission' => $permission,
-                'time' => time(),
-            ];
-            header("Location: " . appBasePath() . "/modules/auth/access-denied");
-            exit;
-        }
-    }
-
-    if (!hasRole($roles)) {
-        // Log unauthorized access attempt
-        $user = getCurrentUser();
-        $userId = $user ? $user['id'] : 'unknown';
-        $requestedRoles = is_array($roles) ? implode(', ', $roles) : $roles;
-        error_log("Unauthorized access attempt by user $userId for roles: $requestedRoles on " . $_SERVER['REQUEST_URI']);
-        
+    $permission = inferPermissionKeyForRequest();
+    if ($permission !== null && str_starts_with($permission, 'hr.') && (function_exists('isClient') && isClient() || function_exists('isVendor') && isVendor())) {
         if (isAjaxRequest()) {
             header('Content-Type: application/json; charset=utf-8');
             http_response_code(403);
             echo json_encode(['success' => false, 'message' => 'You are not authorized to perform this action.']);
             exit;
-        } else {
-            $_SESSION['access_denied_context'] = [
-                'uri' => (string)($_SERVER['REQUEST_URI'] ?? ''),
-                'required_roles' => is_array($roles) ? array_values($roles) : [(string)$roles],
-                'required_permission' => null,
-                'time' => time(),
-            ];
-            header("Location: " . appBasePath() . "/modules/auth/access-denied");
-            exit;
+        }
+        $_SESSION['access_denied_context'] = [
+            'uri' => (string)($_SERVER['REQUEST_URI'] ?? ''),
+            'required_roles' => [],
+            'required_permission' => $permission,
+            'time' => time(),
+        ];
+        header("Location: " . appBasePath() . "/modules/auth/access-denied");
+        exit;
+    }
+    if ($permission === 'leads.view') {
+        $path = (string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        $path = strtolower($path);
+        if (str_contains($path, '/modules/leads/view') || str_contains($path, '/modules/leads/details') || str_contains($path, '/modules/leads/get_lead_details')) {
+            if (userHasPermission('leads.my') || userHasPermission('leads.manage') || userHasPermission('qa.access')) return;
         }
     }
+    if ($permission !== null && userHasPermission($permission)) return;
+    $user = getCurrentUser();
+    $userId = $user ? $user['id'] : 'unknown';
+    $permTxt = $permission !== null ? $permission : '(unmapped)';
+    error_log("Unauthorized access attempt by user $userId for permission: $permTxt on " . ($_SERVER['REQUEST_URI'] ?? ''));
+    if (isAjaxRequest()) {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'You are not authorized to perform this action.']);
+        exit;
+    }
+    $_SESSION['access_denied_context'] = [
+        'uri' => (string)($_SERVER['REQUEST_URI'] ?? ''),
+        'required_roles' => [],
+        'required_permission' => $permission,
+        'time' => time(),
+    ];
+    header("Location: " . appBasePath() . "/modules/auth/access-denied");
+    exit;
 }
 
 function inferPermissionKeyForRequest(): ?string {
@@ -763,7 +897,16 @@ function inferPermissionKeyForRequest(): ?string {
     }
     if ($module === 'notifications') return 'notifications.access';
     if ($module === 'chat') return 'chat.access';
-    if ($module === 'hr') return 'hr.access';
+    if ($module === 'hr') {
+        if (preg_match('/(^|\\/)(attendance-admin|attendance-export|attendance-monthly-report|attendance-monthly-export)(\\/|$)/', $rest)) return 'hr.attendance_admin';
+        if (preg_match('/(^|\\/)(attendance)(\\/|$)/', $rest)) return 'hr.attendance';
+        if (preg_match('/(^|\\/)(paid-leaves)(\\/|$)/', $rest)) return 'hr.leaves';
+        if (preg_match('/(^|\\/)(payslips|payslip-view|payslip-pdf)(\\/|$)/', $rest)) return 'hr.payslips';
+        if (preg_match('/(^|\\/)(payroll|payroll-export|salary-setup|bonus-loans)(\\/|$)/', $rest)) return 'hr.payroll';
+        if (preg_match('/(^|\\/)(shifts)(\\/|$)/', $rest)) return 'hr.shifts';
+        if (preg_match('/(^|\\/)(hr-dashboard)(\\/|$)/', $rest)) return 'hr.access';
+        return 'hr.access';
+    }
     if ($module === 'revenue') return 'revenue.access';
     if ($module === 'sales') return 'sales.access';
 
@@ -788,6 +931,8 @@ function inferPermissionKeyForRequest(): ?string {
     if ($module === 'vendors') {
         if (str_contains($rest, 'vendor-users')) return 'vendors.users.manage';
         if (str_contains($rest, 'vendor-leads')) return 'leads.view';
+        if (str_contains($rest, 'vendor-revenue')) return 'revenue.access';
+        if (str_contains($rest, 'vendor-billing')) return 'vendors.access';
         if (str_contains($rest, 'vendor-campaign')) return 'campaigns.view';
         return 'vendors.access';
     }
@@ -802,20 +947,21 @@ function inferPermissionKeyForRequest(): ?string {
     }
 
     if ($module === 'campaigns') {
-        if (preg_match('/(^|\\/)(create|edit|delete|allocation|assign-sdr|options-source)(\\/|$)/', $rest)) return 'campaigns.manage';
+        if (preg_match('/(^|\\/)(manage|campaigns-manage\\.php|create|edit|delete|allocation|assign-sdr|options-source)(\\/|$)/', $rest)) return 'campaigns.manage';
         if (str_contains($rest, 'export')) return 'campaigns.export';
         return 'campaigns.view';
     }
 
     if ($module === 'leads') {
-        if (preg_match('/(^|\\/)(purge|leads-purge\\.php)(\\/|$)/', $rest)) return 'leads.purge';
-        if (preg_match('/(^|\\/)(bulk|bulk-upload\\.php)(\\/|$)/', $rest)) return 'leads.bulk_upload';
-        if (preg_match('/(^|\\/)(tracking|lead-tracking\\.php)(\\/|$)/', $rest)) return 'leads.tracking';
-        if (preg_match('/(^|\\/)(entry|agent\\.php)(\\/|$)/', $rest)) return 'leads.entry';
-        if (preg_match('/(^|\\/)(my|my-leads\\.php)(\\/|$)/', $rest)) return 'leads.my';
-        if (preg_match('/(^|\\/)(marketing|form-filler\\.php)(\\/|$)/', $rest)) return 'leads.marketing';
-        if (preg_match('/(^|\\/)(email|email-leads\\.php)(\\/|$)/', $rest)) return 'leads.email';
-        if (preg_match('/(^|\\/)(list|details|vendors)(\\/|$)/', $rest)) return 'leads.manage';
+        if (preg_match('/(^|\\/)(purge|leads-purge|leads-purge\\.php)(\\/|$)/', $rest)) return 'leads.purge';
+        if (preg_match('/(^|\\/)(bulk|bulk-upload|bulk-upload\\.php)(\\/|$)/', $rest)) return 'leads.bulk_upload';
+        if (preg_match('/(^|\\/)(tracking|lead-tracking|lead-tracking\\.php)(\\/|$)/', $rest)) return 'leads.tracking';
+        if (preg_match('/(^|\\/)(entry|agent|agent\\.php)(\\/|$)/', $rest)) return 'leads.entry';
+        if (preg_match('/(^|\\/)(my|my-leads|my-leads\\.php)(\\/|$)/', $rest)) return 'leads.my';
+        if (preg_match('/(^|\\/)(marketing|form-filler|form-filler\\.php)(\\/|$)/', $rest)) return 'leads.marketing';
+        if (preg_match('/(^|\\/)(email|email-leads|email-leads\\.php)(\\/|$)/', $rest)) return 'leads.email';
+        if (preg_match('/(^|\\/)(lead-details|lead-details\\.php|get_lead_details|get_lead_details\\.php)(\\/|$)/', $rest)) return 'leads.view';
+        if (preg_match('/(^|\\/)(leads-edit\\.php|leads-edit|edit)(\\/|$)/', $rest)) return 'leads.manage';
         if (str_contains($rest, 'export')) return 'leads.export';
         if (preg_match('/(^|\\/)(view)(\\/|$)/', $rest)) return 'leads.view';
         return 'leads.view';

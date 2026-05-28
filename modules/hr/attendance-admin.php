@@ -3,7 +3,8 @@ require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/hr-ui.php';
 
-requireRole(['admin']);
+$allowedRoles = function_exists('getKnownRoles') ? getKnownRoles() : ['admin'];
+requireRole($allowedRoles);
 ensureCsrfToken();
 $user = getCurrentUser();
 
@@ -33,13 +34,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $messageType = 'danger';
             } else {
                 $conn = getDbConnection();
-                $pInDb = $pIn !== '' ? ($workDate . ' ' . $pIn . ':00') : null;
-                $pOutDb = $pOut !== '' ? ($workDate . ' ' . $pOut . ':00') : null;
+                $toDb = function(string $d, string $t): ?string {
+                    $t = trim($t);
+                    if ($t === '') return null;
+                    if (!preg_match('/^\d{2}:\d{2}$/', $t)) return null;
+                    try {
+                        $dt = new DateTimeImmutable($d . ' ' . $t . ':00', hrDisplayTz());
+                        return $dt->setTimezone(hrBaseTz())->format('Y-m-d H:i:s');
+                    } catch (Throwable $e) {
+                        return null;
+                    }
+                };
+                $pInDb = $toDb($workDate, $pIn);
+                $pOutDb = $toDb($workDate, $pOut);
                 if ($pInDb !== null && $pOutDb !== null) {
-                    $inTs = strtotime($pInDb);
-                    $outTs = strtotime($pOutDb);
-                    if ($inTs !== false && $outTs !== false && $outTs <= $inTs) {
-                        $pOutDb = date('Y-m-d H:i:s', strtotime($pOutDb . ' +1 day'));
+                    $inDt = hrParseBase($pInDb);
+                    $outDt = hrParseBase($pOutDb);
+                    if ($inDt && $outDt && $outDt <= $inDt) {
+                        $pOutDb = $outDt->modify('+1 day')->format('Y-m-d H:i:s');
                     }
                 }
                 $stmt = $conn->prepare("UPDATE hr_attendance_days SET punch_in = ?, punch_out = ?, updated_at = NOW() WHERE id = ?");
@@ -338,6 +350,7 @@ $absCount = 0;
 $plCount = 0;
 $ulCount = 0;
 $inProg = 0;
+$presentLate = 0;
 foreach ($rows as $r) {
     $st = (string)($r['status'] ?? 'Absent');
     if ($st === 'Full Day') $fullCount++;
@@ -346,6 +359,12 @@ foreach ($rows as $r) {
     elseif ($st === 'Unpaid Leave') $ulCount++;
     elseif ($st === 'In Progress') $inProg++;
     else $absCount++;
+
+    $pIn = (string)($r['punch_in'] ?? '');
+    $late = (int)($r['late_minutes'] ?? 0);
+    if ($pIn !== '' && $late > 0 && !in_array($st, ['Paid Leave','Unpaid Leave','paid_leave','unpaid_leave'], true)) {
+        $presentLate++;
+    }
 }
 ?>
 <?php $pageTitle = 'Attendance Dashboard'; include __DIR__ . '/../../includes/layout/app_start.php'; ?>
@@ -372,79 +391,105 @@ foreach ($rows as $r) {
                     <?php if ($message !== ''): ?>
                         <div class="alert alert-<?php echo htmlspecialchars($messageType); ?>"><?php echo htmlspecialchars($message); ?></div>
                     <?php endif; ?>
-                    <div class="row g-2 align-items-end mb-3">
-                        <div class="col-md-3">
-                            <label class="form-label small text-muted">Date</label>
-                            <form method="get" class="d-flex gap-2">
-                                <input type="date" name="date" class="form-control form-control-sm" value="<?php echo htmlspecialchars($date); ?>">
-                                <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-funnel"></i></button>
-                            </form>
+                    <div class="row g-3 mb-3">
+                        <div class="col-lg-4">
+                            <div class="card hr-card h-100">
+                                <div class="card-header bg-light fw-semibold d-flex align-items-center gap-2">
+                                    <i class="bi bi-calendar3"></i>
+                                    <span>Daily</span>
+                                </div>
+                                <div class="card-body">
+                                    <form method="get" class="row g-2 align-items-end">
+                                        <div class="col-12">
+                                            <label class="form-label small text-muted">Date</label>
+                                            <input type="date" name="date" class="form-control form-control-sm" value="<?php echo htmlspecialchars($date); ?>">
+                                        </div>
+                                        <div class="col-12">
+                                            <button class="btn btn-outline-primary btn-sm w-100" type="submit"><i class="bi bi-funnel"></i> Load</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-9">
-                            <label class="form-label small text-muted">Monthly Bulk Entry (for one agent)</label>
-                            <form method="post" class="row g-2 align-items-end">
-                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
-                                <input type="hidden" name="action" value="bulk_month">
-                                <div class="col-md-4">
-                                    <select class="form-select form-select-sm" name="user_id" required>
-                                        <option value="">Select agent</option>
-                                        <?php foreach ($rows as $uRow): ?>
-                                            <option value="<?php echo (int)($uRow['user_id'] ?? 0); ?>">
-                                                <?php
-                                                    $nm = (string)($uRow['full_name'] ?? '');
-                                                    $role = (string)($uRow['role'] ?? '');
-                                                    echo htmlspecialchars($nm . ($role !== '' ? ' (' . $role . ')' : ''));
-                                                ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
+                        <div class="col-lg-8">
+                            <div class="card hr-card h-100">
+                                <div class="card-header bg-light fw-semibold d-flex align-items-center gap-2">
+                                    <i class="bi bi-calendar2-plus"></i>
+                                    <span>Monthly Bulk Entry (Single Agent)</span>
                                 </div>
-                                <div class="col-md-2">
-                                    <input type="month" class="form-control form-control-sm" name="month" value="<?php echo htmlspecialchars($selMonthStr); ?>" required>
+                                <div class="card-body">
+                                    <form method="post" class="row g-2 align-items-end">
+                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                                        <input type="hidden" name="action" value="bulk_month">
+                                        <div class="col-md-5">
+                                            <label class="form-label small text-muted">Employee</label>
+                                            <select class="form-select form-select-sm" name="user_id" required>
+                                                <option value="">Select agent</option>
+                                                <?php foreach ($rows as $uRow): ?>
+                                                    <option value="<?php echo (int)($uRow['user_id'] ?? 0); ?>">
+                                                        <?php
+                                                            $nm = (string)($uRow['full_name'] ?? '');
+                                                            $role = (string)($uRow['role'] ?? '');
+                                                            echo htmlspecialchars($nm . ($role !== '' ? ' (' . $role . ')' : ''));
+                                                        ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small text-muted">Month</label>
+                                            <input type="month" class="form-control form-control-sm" name="month" value="<?php echo htmlspecialchars($selMonthStr); ?>" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small text-muted">Set As</label>
+                                            <select class="form-select form-select-sm" name="status">
+                                                <option value="Full Day" selected>Full Day (Shift)</option>
+                                                <option value="Half Day">Half Day</option>
+                                                <option value="Paid Leave">Paid Leave</option>
+                                                <option value="Unpaid Leave">Unpaid Leave</option>
+                                                <option value="Absent">Absent</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-8 d-flex flex-wrap gap-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="working_only" value="1" id="workingOnly" checked>
+                                                <label class="form-check-label small" for="workingOnly">Working days only</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="overwrite" value="1" id="overwriteDays">
+                                                <label class="form-check-label small" for="overwriteDays">Overwrite existing</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button class="btn btn-primary btn-sm w-100" type="submit"><i class="bi bi-check2-circle"></i> Apply</button>
+                                        </div>
+                                    </form>
                                 </div>
-                                <div class="col-md-2">
-                                    <select class="form-select form-select-sm" name="status">
-                                        <option value="Full Day" selected>Full Day</option>
-                                        <option value="Half Day">Half Day</option>
-                                        <option value="Paid Leave">Paid Leave</option>
-                                        <option value="Unpaid Leave">Unpaid Leave</option>
-                                        <option value="Absent">Absent</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-2 d-flex flex-column gap-1">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="working_only" value="1" id="workingOnly" checked>
-                                        <label class="form-check-label small" for="workingOnly">Working days only</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="overwrite" value="1" id="overwriteDays">
-                                        <label class="form-check-label small" for="overwriteDays">Overwrite</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-2">
-                                    <button class="btn btn-primary btn-sm w-100" type="submit"><i class="bi bi-calendar2-plus"></i> Apply</button>
-                                </div>
-                            </form>
+                            </div>
                         </div>
                     </div>
+
                     <div class="row g-3 mb-3">
-                        <div class="col-md-2">
+                        <div class="col-6 col-md-4 col-lg-3">
                             <?php hrKpi('Full Day', (string)number_format($fullCount), 'bi-check2-circle', '', 'text-success'); ?>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-6 col-md-4 col-lg-3">
                             <?php hrKpi('Half Day', (string)number_format($halfCount), 'bi-hourglass-split', '', 'text-warning'); ?>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-6 col-md-4 col-lg-3">
                             <?php hrKpi('Paid Leave', (string)number_format($plCount), 'bi-calendar2-plus', '', 'text-success'); ?>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-6 col-md-4 col-lg-3">
                             <?php hrKpi('Unpaid Leave', (string)number_format($ulCount), 'bi-calendar2-x', '', 'text-danger'); ?>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-6 col-md-4 col-lg-3">
                             <?php hrKpi('Absent', (string)number_format($absCount), 'bi-x-circle', '', 'text-danger'); ?>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-6 col-md-4 col-lg-3">
                             <?php hrKpi('In Progress', (string)number_format($inProg), 'bi-arrow-repeat'); ?>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-3">
+                            <?php hrKpi('Present Late', (string)number_format($presentLate), 'bi-alarm', '', 'text-warning'); ?>
                         </div>
                     </div>
                     <div class="row g-3">
@@ -455,6 +500,7 @@ foreach ($rows as $r) {
                                         <tr>
                                             <th>User</th>
                                             <th>Job Title</th>
+                                            <th>Shift</th>
                                             <th>Punch In</th>
                                             <th>Punch Out</th>
                                             <th>State</th>
@@ -470,8 +516,11 @@ foreach ($rows as $r) {
                                             <?php
                                                 $pIn = (string)($r['punch_in'] ?? '');
                                                 $pOut = (string)($r['punch_out'] ?? '');
-                                                $pInV = $pIn !== '' ? date('H:i', strtotime($pIn)) : '';
-                                                $pOutV = $pOut !== '' ? date('H:i', strtotime($pOut)) : '';
+                                                $pInV = $pIn !== '' ? hrFormatForDisplay($pIn, 'H:i') : '';
+                                                $pOutV = $pOut !== '' ? hrFormatForDisplay($pOut, 'H:i') : '';
+                                                $shiftStartTime = (string)($r['shift_start_time'] ?? '');
+                                                $shiftStartV = $shiftStartTime !== '' ? substr($shiftStartTime, 0, 5) : '';
+                                                $graceM = (int)($r['grace_minutes'] ?? 0);
                                                 $st = (string)($r['status'] ?? 'Absent');
                                                 $stCls = $st === 'Full Day'
                                                     ? 'bg-success'
@@ -487,6 +536,12 @@ foreach ($rows as $r) {
                                             <tr>
                                                 <td class="fw-semibold"><?php echo htmlspecialchars((string)($r['full_name'] ?? '')); ?></td>
                                                 <td class="text-muted small"><?php echo htmlspecialchars($jt !== '' ? $jt : ''); ?></td>
+                                                <td class="text-muted small">
+                                                    <?php
+                                                        if ($shiftStartV === '' && $graceM <= 0) echo '—';
+                                                        else echo htmlspecialchars(($shiftStartV !== '' ? $shiftStartV : '—') . ($graceM > 0 ? ' (+' . $graceM . 'm)' : ''));
+                                                    ?>
+                                                </td>
                                                 <td class="font-monospace"><?php echo $pInV !== '' ? htmlspecialchars($pInV) : '—'; ?></td>
                                                 <td class="font-monospace"><?php echo $pOutV !== '' ? htmlspecialchars($pOutV) : '—'; ?></td>
                                                 <td><?php echo htmlspecialchars((string)($r['current_state'] ?? 'Off')); ?></td>
@@ -499,7 +554,7 @@ foreach ($rows as $r) {
                                                 </td>
                                             </tr>
                                             <tr class="collapse" id="edit<?php echo (int)$r['user_id']; ?>">
-                                                <td colspan="10">
+                                                <td colspan="11">
                                                     <div class="d-flex flex-wrap gap-2 mb-2">
                                                         <form method="post" class="m-0">
                                                             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">

@@ -14,6 +14,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Invalid token.';
     } else {
         $action = $_POST['action'] ?? '';
+        if (function_exists('isAjaxRequest') && isAjaxRequest() && in_array((string)$action, ['get_client_users','delete_client_user','set_user_active'], true)) {
+            header('Content-Type: application/json; charset=utf-8');
+            try {
+                $clientId = (int)($_POST['client_id'] ?? 0);
+                if ($clientId <= 0) throw new RuntimeException('Invalid client');
+
+                if ($action === 'get_client_users') {
+                    $stmt = $conn->prepare("SELECT id, full_name, username, email, job_title, role, is_active, profile_pic FROM users WHERE client_id = ? ORDER BY role, full_name");
+                    if (!$stmt) throw new RuntimeException('Database error');
+                    $stmt->bind_param('i', $clientId);
+                    $stmt->execute();
+                    $users = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+                    $stmt->close();
+                    echo json_encode(['ok' => true, 'users' => $users], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    exit;
+                }
+
+                if ($action === 'set_user_active') {
+                    $uid = (int)($_POST['user_id'] ?? 0);
+                    $active = isset($_POST['is_active']) ? (int)$_POST['is_active'] : 0;
+                    if ($uid <= 0) throw new RuntimeException('Invalid user');
+                    $stmt = $conn->prepare("SELECT client_id FROM users WHERE id = ? LIMIT 1");
+                    if (!$stmt) throw new RuntimeException('Database error');
+                    $stmt->bind_param('i', $uid);
+                    $stmt->execute();
+                    $row = $stmt->get_result()->fetch_assoc() ?: null;
+                    $stmt->close();
+                    if (!$row || (int)$row['client_id'] !== $clientId) throw new RuntimeException('Not allowed');
+                    $st = $conn->prepare("UPDATE users SET is_active = ? WHERE id = ?");
+                    if (!$st) throw new RuntimeException('Database error');
+                    $st->bind_param('ii', $active, $uid);
+                    if (!$st->execute()) throw new RuntimeException('Failed to update status');
+                    $st->close();
+                    echo json_encode(['ok' => true]);
+                    exit;
+                }
+
+                if ($action === 'delete_client_user') {
+                    $uid = (int)($_POST['user_id'] ?? 0);
+                    if ($uid <= 0) throw new RuntimeException('Invalid user');
+                    $stmt = $conn->prepare("SELECT id, client_id FROM users WHERE id = ? LIMIT 1");
+                    if (!$stmt) throw new RuntimeException('Database error');
+                    $stmt->bind_param('i', $uid);
+                    $stmt->execute();
+                    $row = $stmt->get_result()->fetch_assoc() ?: null;
+                    $stmt->close();
+                    if (!$row || (int)$row['client_id'] !== $clientId) throw new RuntimeException('Not allowed');
+                    @$conn->query("DELETE FROM client_sdr_map WHERE client_id = " . (int)$clientId . " AND sdr_user_id = " . (int)$uid);
+                    @$conn->query("DELETE FROM campaign_user_assignments WHERE user_id = " . (int)$uid);
+                    $del = $conn->prepare("DELETE FROM users WHERE id = ? AND client_id = ? LIMIT 1");
+                    if (!$del) throw new RuntimeException('Database error');
+                    $del->bind_param('ii', $uid, $clientId);
+                    if (!$del->execute()) throw new RuntimeException('Failed to delete user');
+                    $del->close();
+                    echo json_encode(['ok' => true]);
+                    exit;
+                }
+            } catch (Throwable $e) {
+                echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+        }
         try {
             if ($action === 'set_user_active') {
                 $uid = (int)($_POST['user_id'] ?? 0);
@@ -312,7 +374,7 @@ if ($clientViewId > 0) {
                 </td>
                 <td class="text-end">
                   <div class="d-inline-flex align-items-center gap-1">
-                    <a class="btn btn-sm btn-light border" href="clients.php?client_id=<?php echo $cid; ?>" data-bs-toggle="tooltip" title="Open"><i class="bi bi-box-arrow-up-right"></i></a>
+                    <button type="button" class="btn btn-sm btn-light border" title="Open" onclick="openClientInfoModal(<?php echo $cid; ?>)"><i class="bi bi-eye"></i></button>
                     <button type="button" class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#clientModal" onclick="openClientModal(<?php echo $cid; ?>)" data-bs-toggle="tooltip" title="Edit"><i class="bi bi-pencil"></i></button>
                   </div>
                 </td>
@@ -328,7 +390,7 @@ if ($clientViewId > 0) {
     <div class="card-header bg-white fw-semibold">Client Details</div>
     <div class="card-body">
       <?php if (!$clientRow): ?>
-        <div class="text-muted">Open a client from the table to view details, contacts, and logins.</div>
+        <div class="text-muted">Use the Open action to preview client information in a popup.</div>
       <?php else: ?>
             <div class="d-flex align-items-start justify-content-between">
               <div>
@@ -521,6 +583,123 @@ if ($clientViewId > 0) {
   </div>
 </div>
 
+<div class="modal fade" id="clientInfoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header">
+        <div>
+          <div class="h5 mb-0" id="cInfoName">Client</div>
+          <div class="text-muted small" id="cInfoMeta">—</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body pt-3">
+        <div class="row g-3">
+          <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-header bg-light fw-semibold">Client Information</div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-12">
+                    <div class="text-muted small">Client Code</div>
+                    <div class="fw-semibold" id="cInfoCode">—</div>
+                  </div>
+                  <div class="col-12">
+                    <div class="text-muted small">Website</div>
+                    <div class="fw-semibold" id="cInfoWebsite">—</div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="text-muted small">Industry</div>
+                    <div class="fw-semibold" id="cInfoIndustry">—</div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="text-muted small">HQ Location</div>
+                    <div class="fw-semibold" id="cInfoCountry">—</div>
+                  </div>
+                  <div class="col-12">
+                    <div class="text-muted small">Notes</div>
+                    <div class="bg-light rounded border p-2 small" id="cInfoNotes">—</div>
+                  </div>
+                  <div class="col-12">
+                    <div class="text-muted small mb-1">Tags</div>
+                    <div id="cInfoTags" class="d-flex flex-wrap gap-1"></div>
+                  </div>
+                  <div class="col-12">
+                    <div class="d-flex align-items-center justify-content-between">
+                      <div class="fw-semibold">Client Users</div>
+                      <button type="button" class="btn btn-sm btn-outline-primary" id="cInfoNewLoginBtn"><i class="bi bi-person-plus me-1"></i>New Login</button>
+                    </div>
+                    <div class="table-responsive mt-2">
+                      <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                          <tr>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody id="cInfoUsersTbody">
+                          <tr><td colspan="4" class="text-center text-muted small py-3">Loading…</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-header bg-light fw-semibold">Assignment & Metrics</div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <div class="text-muted small">Assigned SDR</div>
+                    <div class="fw-semibold" id="cInfoOwner">—</div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="text-muted small">Assigned Manager</div>
+                    <div class="fw-semibold" id="cInfoManager">—</div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="text-muted small">Campaign Count</div>
+                    <div class="fw-semibold" id="cInfoCampaigns">—</div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="text-muted small">Live</div>
+                    <div class="fw-semibold" id="cInfoLive">—</div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="text-muted small">Contacts</div>
+                    <div class="fw-semibold" id="cInfoContacts">—</div>
+                  </div>
+                  <div class="col-12">
+                    <div class="text-muted small">Assigned</div>
+                    <div class="small" id="cInfoAssigned">—</div>
+                  </div>
+                  <div class="col-12">
+                    <div class="d-flex flex-wrap gap-2">
+                      <a class="btn btn-outline-primary btn-sm" id="cInfoViewProfile" href="#"><i class="bi bi-box-arrow-up-right me-1"></i>View Full Profile</a>
+                      <a class="btn btn-outline-secondary btn-sm" id="cInfoViewCampaigns" href="#"><i class="bi bi-megaphone me-1"></i>View Campaigns</a>
+                      <a class="btn btn-outline-secondary btn-sm" id="cInfoViewLeads" href="#"><i class="bi bi-list-ul me-1"></i>View Leads</a>
+                      <button type="button" class="btn btn-outline-secondary btn-sm" id="cInfoEditBtn" data-bs-toggle="modal" data-bs-target="#clientModal"><i class="bi bi-pencil me-1"></i>Edit</button>
+                      <button type="button" class="btn btn-outline-secondary btn-sm" id="cInfoAddLoginBtn" data-bs-toggle="modal" data-bs-target="#clientUserModal"><i class="bi bi-person-plus me-1"></i>Add Login</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer bg-white" style="position: sticky; bottom: 0; z-index: 2;">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="clientModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
@@ -579,17 +758,14 @@ if ($clientViewId > 0) {
       <form method="post">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
         <input type="hidden" name="action" value="create_client_user">
-        <input type="hidden" name="client_id" value="<?php echo (int)($clientRow['id'] ?? 0); ?>">
+        <input type="hidden" name="client_id" id="client_user_client_id" value="0">
         <div class="modal-header bg-primary text-white">
           <h5 class="modal-title"><i class="bi bi-person-plus-fill me-2"></i>Create Client Login</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body p-4">
-          <?php if (!$clientRow): ?>
-            <div class="alert alert-warning">Select a client first.</div>
-          <?php else: ?>
             <div class="alert alert-light border mb-4">
-              <div class="small text-muted"><i class="bi bi-info-circle me-1"></i>Create an external access account for <strong><?php echo htmlspecialchars($clientRow['name']); ?></strong>. They will only see data related to their own account.</div>
+              <div class="small text-muted"><i class="bi bi-info-circle me-1"></i>Create an external access account for <strong id="clientUserClientName">Client</strong>. They will only see data related to their own account.</div>
             </div>
             <div class="row g-3">
               <div class="col-md-6">
@@ -622,11 +798,10 @@ if ($clientViewId > 0) {
                 </div>
               </div>
             </div>
-          <?php endif; ?>
         </div>
         <div class="modal-footer bg-light">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary px-4" <?php echo !$clientRow ? 'disabled' : ''; ?>>Create Login</button>
+          <button type="submit" class="btn btn-primary px-4">Create Login</button>
         </div>
       </form>
     </div>
@@ -644,6 +819,15 @@ const clientsData = <?php echo json_encode(array_map(function($c){
         'country'=>$c['country'] ?? '',
         'notes'=>$c['notes'] ?? '',
         'tags'=>$c['tags'] ?? '',
+        'owner_name'=>$c['owner_name'] ?? '',
+        'owner_role'=>$c['owner_role'] ?? '',
+        'manager_name'=>$c['manager_name'] ?? '',
+        'manager_role'=>$c['manager_role'] ?? '',
+        'campaigns_total'=>(int)($c['campaigns_total'] ?? 0),
+        'campaigns_live'=>(int)($c['campaigns_live'] ?? 0),
+        'contacts_count'=>(int)($c['contacts_count'] ?? 0),
+        'assigned_at'=>$c['assigned_at'] ?? '',
+        'assigned_by_name'=>$c['assigned_by_name'] ?? '',
     ];
 }, $clients), JSON_UNESCAPED_UNICODE); ?>;
 
@@ -679,6 +863,161 @@ function openClientModal(id){
     notes.value = '';
     tags.value = '';
   }
+}
+
+function openClientInfoModal(id){
+  const row = clientsData.find(x => x.id === Number(id));
+  if (!row) return;
+
+  const name = String(row.name || 'Client');
+  const code = String(row.client_code || '');
+  document.getElementById('cInfoName').textContent = name;
+  document.getElementById('cInfoMeta').textContent = code !== '' ? code : '—';
+  document.getElementById('cInfoCode').textContent = code !== '' ? code : '—';
+
+  const website = String(row.website || '');
+  if (website) {
+    const safe = website.match(/^https?:\/\//i) ? website : ('https://' + website);
+    document.getElementById('cInfoWebsite').innerHTML = '<a class="text-decoration-none" target="_blank" rel="noopener noreferrer" href="'+safe.replace(/"/g,'&quot;')+'"><i class="bi bi-globe me-1"></i>'+escapeHtml(website)+'</a>';
+  } else {
+    document.getElementById('cInfoWebsite').textContent = '—';
+  }
+  document.getElementById('cInfoIndustry').textContent = String(row.industry || '—');
+  document.getElementById('cInfoCountry').textContent = String(row.country || '—');
+  document.getElementById('cInfoNotes').textContent = String(row.notes || '—');
+
+  const tagsWrap = document.getElementById('cInfoTags');
+  tagsWrap.innerHTML = '';
+  const tags = String(row.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+  if (tags.length) {
+    tags.forEach(t => {
+      const s = document.createElement('span');
+      s.className = 'badge bg-light text-dark border';
+      s.textContent = t;
+      tagsWrap.appendChild(s);
+    });
+  } else {
+    tagsWrap.innerHTML = '<span class="text-muted small">—</span>';
+  }
+
+  document.getElementById('cInfoOwner').textContent = row.owner_name ? String(row.owner_name) : '—';
+  document.getElementById('cInfoManager').textContent = row.manager_name ? String(row.manager_name) : '—';
+  document.getElementById('cInfoCampaigns').textContent = String(row.campaigns_total ?? 0);
+  document.getElementById('cInfoLive').textContent = String(row.campaigns_live ?? 0);
+  document.getElementById('cInfoContacts').textContent = String(row.contacts_count ?? 0);
+  const assigned = row.assigned_at ? (String(row.assigned_at) + (row.assigned_by_name ? (' by ' + String(row.assigned_by_name)) : '')) : '—';
+  document.getElementById('cInfoAssigned').textContent = assigned;
+
+  document.getElementById('cInfoViewProfile').href = 'clients.php?client_id=' + encodeURIComponent(String(row.id));
+  document.getElementById('cInfoViewCampaigns').href = 'client-campaigns.php?client_id=' + encodeURIComponent(String(row.id));
+  document.getElementById('cInfoViewLeads').href = 'client-leads.php?client_id=' + encodeURIComponent(String(row.id));
+
+  document.getElementById('cInfoEditBtn').onclick = function() { openClientModal(row.id); };
+  const addLoginBtn = document.getElementById('cInfoAddLoginBtn');
+  addLoginBtn.onclick = function() { openClientLoginModal(row.id, name); };
+  document.getElementById('cInfoNewLoginBtn').onclick = function() { openClientLoginModal(row.id, name); };
+
+  loadClientUsers(row.id);
+
+  const modalEl = document.getElementById('clientInfoModal');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  modal.show();
+}
+
+function openClientLoginModal(clientId, clientName) {
+  const m1 = bootstrap.Modal.getOrCreateInstance(document.getElementById('clientInfoModal'));
+  if (m1) m1.hide();
+  const cidInput = document.getElementById('client_user_client_id');
+  if (cidInput) cidInput.value = String(clientId || 0);
+  const n = document.getElementById('clientUserClientName');
+  if (n) n.textContent = clientName || 'Client';
+  const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('clientUserModal'));
+  modal.show();
+}
+
+function loadClientUsers(clientId) {
+  const tbody = document.getElementById('cInfoUsersTbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted small py-3">Loading…</td></tr>';
+  const fd = new FormData();
+  fd.append('csrf_token', '<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>');
+  fd.append('action', 'get_client_users');
+  fd.append('client_id', String(clientId));
+  fetch('clients.php', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd, credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(d => {
+      if (!d || !d.ok) throw new Error(d?.error || 'Failed to load');
+      const users = Array.isArray(d.users) ? d.users : [];
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted small py-3">No users</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      users.forEach(u => {
+        const uid = Number(u.id || 0);
+        const role = String(u.role || '');
+        const nm = String(u.full_name || u.username || '');
+        const active = Number(u.is_active || 0) === 1;
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td class="fw-semibold">' + escapeHtml(nm) + '<div class="text-muted small">' + escapeHtml(String(u.email || '')) + '</div></td>' +
+          '<td class="text-muted small">' + escapeHtml(role) + '</td>' +
+          '<td>' + (active ? '<span class="badge bg-success-subtle text-success border">Active</span>' : '<span class="badge bg-secondary-subtle text-secondary border">Inactive</span>') + '</td>' +
+          '<td class="text-end">' +
+            '<div class="btn-group btn-group-sm">' +
+              '<a class="btn btn-light border" href="../auth/reset-password.php?user_id=' + encodeURIComponent(String(uid)) + '" target="_blank"><i class="bi bi-key"></i></a>' +
+              '<button class="btn btn-light border" type="button" data-toggle-active="' + (active ? '0' : '1') + '" data-user-id="' + String(uid) + '"><i class="bi bi-person-check"></i></button>' +
+              '<button class="btn btn-light border text-danger" type="button" data-delete-user="1" data-user-id="' + String(uid) + '"><i class="bi bi-trash"></i></button>' +
+            '</div>' +
+          '</td>';
+        tbody.appendChild(tr);
+      });
+    })
+    .catch(e => {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger small py-3">' + escapeHtml(String(e?.message || 'Failed')) + '</td></tr>';
+    });
+}
+
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('button[data-delete-user],button[data-toggle-active]');
+  if (!btn) return;
+  const tbody = document.getElementById('cInfoUsersTbody');
+  const cid = document.getElementById('client_user_client_id')?.value || '';
+  const uid = btn.getAttribute('data-user-id') || '';
+  if (!cid || !uid) return;
+
+  const isDelete = btn.hasAttribute('data-delete-user');
+  const fd = new FormData();
+  fd.append('csrf_token', '<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>');
+  fd.append('client_id', String(cid));
+  fd.append('user_id', String(uid));
+  if (isDelete) {
+    if (!confirm('Delete this client user?')) return;
+    fd.append('action', 'delete_client_user');
+  } else {
+    fd.append('action', 'set_user_active');
+    fd.append('is_active', btn.getAttribute('data-toggle-active') === '1' ? '1' : '0');
+  }
+
+  fetch('clients.php', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd, credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(d => {
+      if (!d || !d.ok) throw new Error(d?.error || 'Failed');
+      loadClientUsers(Number(cid));
+    })
+    .catch(err => {
+      if (tbody) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="4" class="text-danger small py-2">' + escapeHtml(String(err?.message || 'Failed')) + '</td>';
+        tbody.prepend(tr);
+      }
+    });
+});
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function(m) {
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]);
+  });
 }
 </script>
 

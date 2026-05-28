@@ -97,6 +97,16 @@ body[data-theme="dark"] .select2-container--default .select2-search--dropdown .s
 :root[data-theme="dark"] .card-header.bg-light,body[data-theme="dark"] .card-header.bg-light{background:rgba(255,255,255,.04)!important;color:var(--app-text)!important;border-bottom:1px solid var(--app-border)!important}
 :root[data-theme="dark"] .table-light,body[data-theme="dark"] .table-light{--bs-table-bg:rgba(255,255,255,.03);--bs-table-color:var(--app-text);--bs-table-border-color:var(--app-border)}
 :root[data-theme="dark"] .bg-white,body[data-theme="dark"] .bg-white{background:rgba(255,255,255,.03)!important}
+.app-flash-toast-container{z-index:1090;max-width:420px;width:min(420px,calc(100vw - 24px))}
+.app-flash-toast{border:1px solid var(--app-border)!important;border-radius:14px;overflow:hidden;background:var(--app-surface)!important;box-shadow:0 18px 48px -34px var(--sidebar-glow),0 0 0 1px rgba(0,0,0,.03)}
+[data-bs-theme="dark"] .app-flash-toast{box-shadow:0 18px 48px -34px var(--sidebar-glow),0 0 0 1px rgba(255,255,255,.03)}
+.app-flash-toast .toast-header{background:linear-gradient(90deg,rgba(0,0,0,0),var(--sidebar-active-bg),rgba(0,0,0,0));border-bottom:1px solid var(--app-border)!important}
+.app-flash-toast .toast-header::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:1px;background:linear-gradient(90deg,transparent,var(--sidebar-neon),transparent);opacity:.55;pointer-events:none}
+.app-flash-toast .toast-header{position:relative}
+.app-flash-toast .toast-body{color:var(--app-text)}
+.app-flash-toast .btn-close{filter:opacity(.7)}
+.app-flash-toast .app-flash-icon{width:28px;height:28px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--app-border);background:rgba(255,255,255,.55)}
+[data-bs-theme="dark"] .app-flash-toast .app-flash-icon{background:rgba(255,255,255,.06)}
 .chat-container .user-avatar{width:34px;height:34px;border-radius:999px}
 .chat-container .user-avatar img{border-radius:999px!important}
 .chat-container .status-indicator{border-radius:999px}

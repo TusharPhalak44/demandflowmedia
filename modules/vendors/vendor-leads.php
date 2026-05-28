@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
-requireRole(['admin','vendor_admin','vendor_user']);
+requirePermissionOrRole('leads.view', ['admin','vendor_admin','vendor_user']);
 ensureCsrfToken();
 
 $user = getCurrentUser();

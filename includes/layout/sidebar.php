@@ -30,16 +30,24 @@
     <?php endif; ?>
   <?php endif; ?>
 
-  <?php if (function_exists('isVendor') && isVendor() && $canAny(['vendors.access','campaigns.view','leads.view','revenue.access'])): ?>
+  <?php if (function_exists('isVendor') && isVendor() && $canAny(['vendors.access','campaigns.view','leads.view','leads.entry','leads.my','revenue.access'])): ?>
     <div class="sidebar-section">Vendor</div>
+    <?php if ($canPerm('leads.entry')): ?>
+      <a class="sidebar-link <?php echo $layoutPage === 'agent.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/leads/entry"><i class="bi bi-plus-circle"></i><span>Add Lead</span></a>
+    <?php endif; ?>
+    <?php if ($canPerm('leads.my')): ?>
+      <a class="sidebar-link <?php echo $layoutPage === 'my-leads.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/leads/my"><i class="bi bi-list-check"></i><span>My Leads</span></a>
+    <?php endif; ?>
     <?php if ($canPerm('campaigns.view')): ?>
       <a class="sidebar-link <?php echo $layoutPage === 'vendor-campaigns.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/vendors/vendor-campaigns"><i class="bi bi-megaphone"></i><span>Campaigns</span></a>
     <?php endif; ?>
     <?php if ($canPerm('leads.view')): ?>
       <a class="sidebar-link <?php echo $layoutPage === 'vendor-leads.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/vendors/vendor-leads"><i class="bi bi-list-task"></i><span>Leads</span></a>
     <?php endif; ?>
-    <?php if ($canPerm('revenue.access') || $canPerm('vendors.access')): ?>
+    <?php if ($canPerm('revenue.access')): ?>
       <a class="sidebar-link <?php echo $layoutPage === 'vendor-revenue.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/vendors/vendor-revenue"><i class="bi bi-coin"></i><span>Revenue</span></a>
+    <?php endif; ?>
+    <?php if ($canPerm('vendors.access')): ?>
       <a class="sidebar-link <?php echo $layoutPage === 'vendor-billing.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/vendors/vendor-billing"><i class="bi bi-receipt"></i><span>Billing</span></a>
     <?php endif; ?>
   <?php elseif (function_exists('isClient') && isClient() && $canAny(['clients.access','campaigns.view','leads.view'])): ?>
@@ -141,10 +149,13 @@
         <a class="sidebar-sublink <?php echo $layoutPage === 'bulk-upload.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/leads/bulk"><i class="bi bi-upload"></i><span>Bulk Upload</span></a>
       <?php endif; ?>
       <?php if ($canPerm('leads.manage')): ?>
-        <a class="sidebar-sublink <?php echo $layoutPage === 'leads-edit.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/leads/list"><i class="bi bi-clipboard-data"></i><span>Manage Leads</span></a>
+        <?php $leadsMode = (string)($_GET['mode'] ?? ''); ?>
+        <?php $manageLeadsActive = ($layoutPage === 'leads-edit.php' && $leadsMode !== 'vendor'); ?>
+        <a class="sidebar-sublink <?php echo $manageLeadsActive ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/leads/list"><i class="bi bi-clipboard-data"></i><span>Manage Leads</span></a>
       <?php endif; ?>
       <?php if ($canPerm('leads.manage')): ?>
-        <a class="sidebar-sublink <?php echo $layoutPage === 'leads-edit.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/leads/vendors"><i class="bi bi-truck"></i><span>Vendor Leads</span></a>
+        <?php $vendorLeadsActive = ($layoutPage === 'leads-edit.php' && $leadsMode === 'vendor'); ?>
+        <a class="sidebar-sublink <?php echo $vendorLeadsActive ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/leads/vendors"><i class="bi bi-truck"></i><span>Vendor Leads</span></a>
       <?php endif; ?>
     </div>
     <?php endif; ?>
@@ -173,26 +184,37 @@
     <?php endif; ?>
   <?php endif; ?>
 
-  <?php if ($isInternal && (isAgent() || isAdmin() || isDirector() || isQA() || $canPerm('hr.access'))): ?>
-    <?php if ($canPerm('hr.access')): ?>
-    <?php $hrActive = in_array($layoutPage, ['hr-dashboard.php','attendance.php','payslips.php','attendance-admin.php','shifts.php','salary-setup.php','bonus-loans.php','payroll.php','payslip-view.php','payslip-pdf.php'], true); ?>
+  <?php if ($isInternal && $canAny(['hr.access','hr.attendance','hr.leaves','hr.payslips','hr.attendance_admin','hr.shifts','hr.payroll'])): ?>
+    <?php $hrActive = in_array($layoutPage, ['hr-dashboard.php','attendance.php','paid-leaves.php','payslips.php','attendance-admin.php','attendance-export.php','attendance-monthly-report.php','attendance-monthly-export.php','shifts.php','salary-setup.php','bonus-loans.php','payroll.php','payroll-export.php','payslip-view.php','payslip-pdf.php'], true); ?>
     <a class="sidebar-link sidebar-toggle <?php echo $hrActive ? 'active' : ''; ?>" data-bs-toggle="collapse" href="#navHR" role="button" aria-expanded="<?php echo $hrActive ? 'true' : 'false'; ?>">
       <span class="sidebar-title"><i class="bi bi-person-badge"></i><span>HR & Payroll</span></span>
       <i class="bi bi-chevron-down sidebar-chevron"></i>
     </a>
     <div class="collapse sidebar-submenu <?php echo $hrActive ? 'show' : ''; ?>" id="navHR">
-      <a class="sidebar-sublink <?php echo $layoutPage === 'hr-dashboard.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/hr/hr-dashboard"><i class="bi bi-columns-gap"></i><span>Dashboard</span></a>
-      <a class="sidebar-sublink <?php echo $layoutPage === 'attendance.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/hr/attendance"><i class="bi bi-fingerprint"></i><span>Attendance</span></a>
-      <a class="sidebar-sublink <?php echo $layoutPage === 'payslips.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/hr/payslips"><i class="bi bi-receipt"></i><span>Payslips</span></a>
-      <?php if (isAdmin()): ?>
+      <?php if ($canPerm('hr.access')): ?>
+        <a class="sidebar-sublink <?php echo $layoutPage === 'hr-dashboard.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/hr/hr-dashboard"><i class="bi bi-columns-gap"></i><span>Dashboard</span></a>
+      <?php endif; ?>
+      <?php if ($canAny(['hr.attendance','hr.access'])): ?>
+        <a class="sidebar-sublink <?php echo $layoutPage === 'attendance.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/hr/attendance"><i class="bi bi-fingerprint"></i><span>Attendance</span></a>
+      <?php endif; ?>
+      <?php if ($canAny(['hr.leaves','hr.access'])): ?>
+        <a class="sidebar-sublink <?php echo $layoutPage === 'paid-leaves.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/hr/paid-leaves"><i class="bi bi-calendar2-week"></i><span>Paid Leaves</span></a>
+      <?php endif; ?>
+      <?php if ($canAny(['hr.payslips','hr.access'])): ?>
+        <a class="sidebar-sublink <?php echo $layoutPage === 'payslips.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/hr/payslips"><i class="bi bi-receipt"></i><span>Payslips</span></a>
+      <?php endif; ?>
+      <?php if ($canPerm('hr.attendance_admin')): ?>
         <a class="sidebar-sublink <?php echo $layoutPage === 'attendance-admin.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/hr/attendance-admin"><i class="bi bi-calendar2-check"></i><span>Attendance Admin</span></a>
+      <?php endif; ?>
+      <?php if ($canPerm('hr.shifts')): ?>
         <a class="sidebar-sublink <?php echo $layoutPage === 'shifts.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/hr/shifts"><i class="bi bi-clock-history"></i><span>Shifts</span></a>
+      <?php endif; ?>
+      <?php if ($canPerm('hr.payroll')): ?>
         <a class="sidebar-sublink <?php echo $layoutPage === 'salary-setup.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/hr/salary-setup"><i class="bi bi-wallet2"></i><span>Salary Setup</span></a>
         <a class="sidebar-sublink <?php echo $layoutPage === 'bonus-loans.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/hr/bonus-loans"><i class="bi bi-gift"></i><span>Bonus & Loans</span></a>
         <a class="sidebar-sublink <?php echo $layoutPage === 'payroll.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/hr/payroll"><i class="bi bi-calculator"></i><span>Payroll</span></a>
       <?php endif; ?>
     </div>
-    <?php endif; ?>
   <?php endif; ?>
 
   <?php if ($isInternal && (isAdmin() || isDirector() || hasRole(['manager_director','sales_director','operations_director']) || $canPerm('revenue.access'))): ?>

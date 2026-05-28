@@ -3,7 +3,8 @@ require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/hr-ui.php';
 
-requireRole(['admin']);
+$allowedRoles = function_exists('getKnownRoles') ? getKnownRoles() : ['admin'];
+requireRole($allowedRoles);
 ensureCsrfToken();
 $user = getCurrentUser();
 
@@ -43,11 +44,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $users = getInternalPayrollUsers();
                     $count = 0;
+                    $missingSalary = 0;
+                    $failed = 0;
                     foreach ($users as $u) {
                         $uid = (int)($u['id'] ?? 0);
                         if ($uid <= 0) continue;
                         $pay = computePayrollForUserMonth($uid, $yy, $mo);
-                        if (!$pay) continue;
+                        if (!$pay) { $missingSalary++; continue; }
                         $payload = [
                             'user' => [
                                 'id' => $uid,
@@ -71,10 +74,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (upsertPayslip($uid, $yy, $mo, $payload, (int)$user['id'])) {
                             finalizeLoanDeductionsForMonth($uid, $yy, $mo);
                             $count++;
+                        } else {
+                            $failed++;
                         }
                     }
-                    $message = 'Payslips generated/updated: ' . $count;
-                    $messageType = 'success';
+                    $message = 'Payslips generated/updated: ' . $count . '. Missing salary setup: ' . $missingSalary . '. Failed saves: ' . $failed . '.';
+                    $messageType = ($count > 0 && $failed === 0) ? 'success' : (($count > 0) ? 'warning' : 'danger');
                 }
             } elseif ($action === 'lock') {
                 $ok = hrLockPayrollMonth($yy, $mo, (int)$user['id']);

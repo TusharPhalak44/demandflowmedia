@@ -2,7 +2,8 @@
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
-requireRole(['admin']);
+$allowedRoles = function_exists('getKnownRoles') ? getKnownRoles() : ['admin'];
+requireRole($allowedRoles);
 ensureCsrfToken();
 $user = getCurrentUser();
 
@@ -288,4 +289,3 @@ function monthName($y, $m) { return date('F Y', mktime(0,0,0,$m,1,$y)); }
     </div>
 </div>
 <?php include __DIR__ . '/../../includes/layout/app_end.php'; ?>
-

@@ -7,13 +7,16 @@ requireRole(['admin','agent','operations_agent','operations_manager','operations
 ensureCsrfToken();
 $user = getCurrentUser();
 
-$today = date('Y-m-d');
-$now = new DateTime();
+$today = (new DateTimeImmutable('now', hrBaseTz()))->format('Y-m-d');
+$now = new DateTimeImmutable('now', hrBaseTz());
 $year = (int)$now->format('Y');
 $month = (int)$now->format('m');
 $monthStr = $now->format('Y-m');
 
-$isAdmin = in_array((string)($user['role'] ?? ''), ['admin'], true);
+$canAttendanceAdmin = userHasPermission('hr.attendance_admin');
+$canPayroll = userHasPermission('hr.payroll');
+$canShifts = userHasPermission('hr.shifts');
+$canPayslips = userHasPermission('hr.payslips');
 $workDate = $today;
 $day = getOpenAttendanceDayForUser((int)($user['id'] ?? 0));
 if ($day) {
@@ -63,8 +66,9 @@ function fmtMinutesHrDash(int $m): string {
             'Attendance, payroll, payslips and quick exports',
             [
                 ['label' => 'Attendance', 'href' => 'attendance', 'icon' => 'bi-fingerprint', 'class' => 'btn-outline-primary'],
-                ['label' => 'Payslips', 'href' => 'payslips', 'icon' => 'bi-receipt', 'class' => 'btn-outline-secondary'],
-                $isAdmin ? ['label' => 'Payroll', 'href' => 'payroll', 'icon' => 'bi-calculator', 'class' => 'btn-outline-secondary'] : [],
+                ['label' => 'Paid Leaves', 'href' => 'paid-leaves', 'icon' => 'bi-calendar2-week', 'class' => 'btn-outline-secondary'],
+                $canPayslips ? ['label' => 'Payslips', 'href' => 'payslips', 'icon' => 'bi-receipt', 'class' => 'btn-outline-secondary'] : [],
+                $canPayroll ? ['label' => 'Payroll', 'href' => 'payroll', 'icon' => 'bi-calculator', 'class' => 'btn-outline-secondary'] : [],
             ],
             [
                 ['text' => $workDate, 'class' => 'bg-light text-dark font-monospace'],
@@ -88,11 +92,11 @@ function fmtMinutesHrDash(int $m): string {
                                         <div class="row g-2">
                                             <div class="col-6">
                                                 <div class="hr-kpi-label">Punch In</div>
-                                                <div class="hr-kpi-value font-monospace"><?php echo $pIn !== '' ? htmlspecialchars(date('H:i', strtotime($pIn))) : '—'; ?></div>
+                                                <div class="hr-kpi-value font-monospace"><?php echo $pIn !== '' ? htmlspecialchars(hrFormatForDisplay($pIn, 'H:i')) : '—'; ?></div>
                                             </div>
                                             <div class="col-6">
                                                 <div class="hr-kpi-label">Punch Out</div>
-                                                <div class="hr-kpi-value font-monospace"><?php echo $pOut !== '' ? htmlspecialchars(date('H:i', strtotime($pOut))) : '—'; ?></div>
+                                                <div class="hr-kpi-value font-monospace"><?php echo $pOut !== '' ? htmlspecialchars(hrFormatForDisplay($pOut, 'H:i')) : '—'; ?></div>
                                             </div>
                                             <div class="col-6">
                                                 <div class="hr-kpi-label">Work</div>
@@ -109,7 +113,7 @@ function fmtMinutesHrDash(int $m): string {
                                         </div>
                                         <div class="mt-3 d-flex flex-wrap gap-2">
                                             <a class="btn btn-outline-primary btn-sm" href="attendance"><i class="bi bi-arrow-right-circle"></i> Open</a>
-                                            <?php if ($isAdmin): ?>
+                                            <?php if ($canAttendanceAdmin): ?>
                                                 <a class="btn btn-outline-secondary btn-sm" href="attendance-admin"><i class="bi bi-people"></i> Admin</a>
                                             <?php endif; ?>
                                         </div>
@@ -142,7 +146,7 @@ function fmtMinutesHrDash(int $m): string {
                                             </div>
                                         </div>
                                         <div class="mt-3 d-flex flex-wrap gap-2">
-                                            <?php if ($isAdmin): ?>
+                                            <?php if ($canAttendanceAdmin): ?>
                                                 <a class="btn btn-outline-primary btn-sm" href="attendance-monthly-report?month=<?php echo urlencode($monthStr); ?>"><i class="bi bi-graph-up"></i> Report</a>
                                                 <a class="btn btn-outline-secondary btn-sm" href="attendance-monthly-export?month=<?php echo urlencode($monthStr); ?>"><i class="bi bi-download"></i> CSV</a>
                                             <?php endif; ?>
@@ -160,7 +164,9 @@ function fmtMinutesHrDash(int $m): string {
                                         <div class="hr-kpi-label">Month</div>
                                         <div class="fw-semibold font-monospace"><?php echo htmlspecialchars($monthStr); ?></div>
                                         <div class="mt-3 d-flex flex-wrap gap-2">
-                                            <a class="btn btn-outline-primary btn-sm" href="payslips"><i class="bi bi-arrow-right-circle"></i> View Payslips</a>
+                                            <?php if ($canPayslips): ?>
+                                                <a class="btn btn-outline-primary btn-sm" href="payslips"><i class="bi bi-arrow-right-circle"></i> View Payslips</a>
+                                            <?php endif; ?>
                                             <?php if ($payslip): ?>
                                                 <a class="btn btn-outline-secondary btn-sm" href="payslip-view?month=<?php echo urlencode($monthStr); ?>&user_id=<?php echo (int)($user['id'] ?? 0); ?>"><i class="bi bi-eye"></i> Open</a>
                                             <?php endif; ?>
@@ -175,12 +181,14 @@ function fmtMinutesHrDash(int $m): string {
                                             <div class="fw-semibold"><i class="bi bi-cash-stack me-1"></i> Quick Links</div>
                                         </div>
                                         <div class="d-flex flex-wrap gap-2">
-                                            <?php if ($isAdmin): ?>
+                                            <?php if ($canPayroll): ?>
                                                 <a class="btn btn-outline-secondary btn-sm" href="salary-setup"><i class="bi bi-wallet2"></i> Salary Setup</a>
                                                 <a class="btn btn-outline-secondary btn-sm" href="bonus-loans"><i class="bi bi-gift"></i> Bonus & Loans</a>
-                                                <a class="btn btn-outline-secondary btn-sm" href="shifts"><i class="bi bi-clock-history"></i> Shifts</a>
                                                 <a class="btn btn-outline-danger btn-sm" href="payroll"><i class="bi bi-calculator"></i> Payroll</a>
                                                 <a class="btn btn-outline-secondary btn-sm" href="payroll-export?month=<?php echo urlencode($monthStr); ?>"><i class="bi bi-download"></i> Payroll CSV</a>
+                                            <?php endif; ?>
+                                            <?php if ($canShifts): ?>
+                                                <a class="btn btn-outline-secondary btn-sm" href="shifts"><i class="bi bi-clock-history"></i> Shifts</a>
                                             <?php endif; ?>
                                         </div>
                                         <div class="mt-2 hr-kpi-sub">US holidays this month: <span class="fw-semibold"><?php echo number_format(count($holidaysThisMonth)); ?></span></div>
@@ -214,14 +222,18 @@ function fmtMinutesHrDash(int $m): string {
                                     <?php endif; ?>
                                 </div>
                             </div>
-                            <?php if ($isAdmin): ?>
+                            <?php if ($canAttendanceAdmin || $canPayroll): ?>
                             <div class="card hr-card">
                                 <div class="card-header bg-light fw-semibold"><i class="bi bi-lightning-charge me-1"></i> Quick Exports</div>
                                 <div class="card-body">
                                     <div class="d-grid gap-2">
-                                        <a class="btn btn-outline-primary btn-sm" href="attendance-export?date=<?php echo urlencode($today); ?>"><i class="bi bi-download"></i> Attendance (Today)</a>
-                                        <a class="btn btn-outline-primary btn-sm" href="attendance-monthly-export?month=<?php echo urlencode($monthStr); ?>"><i class="bi bi-download"></i> Attendance (Month)</a>
-                                        <a class="btn btn-outline-primary btn-sm" href="payroll-export?month=<?php echo urlencode($monthStr); ?>"><i class="bi bi-download"></i> Payroll Summary</a>
+                                        <?php if ($canAttendanceAdmin): ?>
+                                            <a class="btn btn-outline-primary btn-sm" href="attendance-export?date=<?php echo urlencode($today); ?>"><i class="bi bi-download"></i> Attendance (Today)</a>
+                                            <a class="btn btn-outline-primary btn-sm" href="attendance-monthly-export?month=<?php echo urlencode($monthStr); ?>"><i class="bi bi-download"></i> Attendance (Month)</a>
+                                        <?php endif; ?>
+                                        <?php if ($canPayroll): ?>
+                                            <a class="btn btn-outline-primary btn-sm" href="payroll-export?month=<?php echo urlencode($monthStr); ?>"><i class="bi bi-download"></i> Payroll Summary</a>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>

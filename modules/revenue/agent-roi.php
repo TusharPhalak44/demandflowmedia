@@ -54,11 +54,11 @@ $agentList = [];
 $stmt = $conn->prepare("
     SELECT l.agent_id, COALESCE(l.agent_name, '') AS agent_name,
            COALESCE(d.cpl_currency, 'USD') AS currency,
-           COUNT(l.id) AS delivered,
+           COUNT(l.id) AS billable,
            SUM(COALESCE(d.cpl, 0)) AS revenue
     FROM leads l
     LEFT JOIN campaign_details d ON d.campaign_id = l.campaign_id
-    WHERE l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ?
+    WHERE l.client_delivery_status = 'Accepted' AND l.created_at BETWEEN ? AND ?
     GROUP BY l.agent_id, agent_name, currency
     ORDER BY revenue DESC
 ");
@@ -78,7 +78,7 @@ foreach ($agentList as $r) {
         $agg[$aid] = [
             'agent_id' => $aid,
             'agent_name' => (string)($r['agent_name'] ?? ''),
-            'delivered' => 0,
+            'billable' => 0,
             'usd' => 0.0,
             'inr' => 0.0,
             'inr_from_usd' => 0.0,
@@ -88,7 +88,7 @@ foreach ($agentList as $r) {
             'incentives_inr' => (float)($payrollByUser[$aid]['incentives'] ?? 0),
         ];
     }
-    $agg[$aid]['delivered'] += (int)($r['delivered'] ?? 0);
+    $agg[$aid]['billable'] += (int)($r['billable'] ?? 0);
     $cur = strtoupper(trim((string)($r['currency'] ?? 'USD')));
     if ($cur === '') $cur = 'USD';
     $rev = (float)($r['revenue'] ?? 0);
@@ -154,7 +154,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                 <thead class="table-light">
                     <tr>
                         <th>Agent</th>
-                        <th class="text-end">Delivered</th>
+                        <th class="text-end">Accepted</th>
                         <th class="text-end">Revenue (INR)</th>
                         <th class="text-end">Net (INR)</th>
                         <th class="text-end">Incentives (INR)</th>
@@ -165,7 +165,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                 </thead>
                 <tbody>
                     <?php if (empty($list)): ?>
-                        <tr><td colspan="8" class="text-center text-muted py-4">No delivered leads in this month.</td></tr>
+                        <tr><td colspan="8" class="text-center text-muted py-4">No accepted (billable) leads in this month.</td></tr>
                     <?php else: ?>
                         <?php foreach ($list as $r): ?>
                             <?php
@@ -175,7 +175,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                             ?>
                             <tr>
                                 <td class="fw-semibold"><?php echo htmlspecialchars((string)($r['agent_name'] ?? '')); ?></td>
-                                <td class="text-end"><?php echo number_format((int)($r['delivered'] ?? 0)); ?></td>
+                                <td class="text-end"><?php echo number_format((int)($r['billable'] ?? 0)); ?></td>
                                 <td class="text-end fw-semibold">₹ <?php echo number_format($revInr, 2); ?></td>
                                 <td class="text-end">₹ <?php echo number_format((float)($r['net_inr'] ?? 0), 2); ?></td>
                                 <td class="text-end">₹ <?php echo number_format((float)($r['incentives_inr'] ?? 0), 2); ?></td>

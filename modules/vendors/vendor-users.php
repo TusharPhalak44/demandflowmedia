@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
-requireRole(['admin','vendor_admin']);
+requirePermissionOrRole('vendors.users.manage', ['admin','vendor_admin']);
 ensureCsrfToken();
 
 $user = getCurrentUser();

@@ -412,8 +412,10 @@ function getOpenAttendanceDayForUser(int $userId, ?string $at = null, int $lookb
     $userId = (int)$userId;
     if ($userId <= 0) return null;
     $at = $at ?: hrNow();
+    $atDt = hrParseBase($at);
+    if (!$atDt) return null;
     $lookbackDays = max(1, (int)$lookbackDays);
-    $minDate = date('Y-m-d', strtotime($at . ' -' . $lookbackDays . ' day'));
+    $minDate = $atDt->modify('-' . $lookbackDays . ' day')->format('Y-m-d');
     ensureDatabaseSchema();
     $conn = getDbConnection();
     $stmt = $conn->prepare("
@@ -448,18 +450,64 @@ function getOpenAttendanceState(int $attendanceDayId): ?array {
     return $row;
 }
 
+function hrBaseTz(): DateTimeZone {
+    static $tz = null;
+    if ($tz instanceof DateTimeZone) return $tz;
+    $id = (string)(getAppSetting('hr.timezone_base', 'Asia/Kolkata') ?? 'Asia/Kolkata');
+    try {
+        $tz = new DateTimeZone($id);
+    } catch (Throwable $e) {
+        $tz = new DateTimeZone('Asia/Kolkata');
+    }
+    return $tz;
+}
+
+function hrDisplayTz(): DateTimeZone {
+    static $tz = null;
+    if ($tz instanceof DateTimeZone) return $tz;
+    $id = (string)(getAppSetting('hr.timezone_display', 'America/New_York') ?? 'America/New_York');
+    try {
+        $tz = new DateTimeZone($id);
+    } catch (Throwable $e) {
+        $tz = new DateTimeZone('America/New_York');
+    }
+    return $tz;
+}
+
+function hrParseBase(string $dt): ?DateTimeImmutable {
+    $dt = trim($dt);
+    if ($dt === '') return null;
+    $tz = hrBaseTz();
+    $d = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $dt, $tz);
+    if ($d instanceof DateTimeImmutable) return $d;
+    try {
+        return new DateTimeImmutable($dt, $tz);
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function hrFormatForDisplay(?string $dt, string $fmt): string {
+    $d = $dt !== null ? hrParseBase($dt) : null;
+    if (!$d) return '';
+    return $d->setTimezone(hrDisplayTz())->format($fmt);
+}
+
 function hrNow(): string {
-    return date('Y-m-d H:i:s');
+    return (new DateTimeImmutable('now', hrBaseTz()))->format('Y-m-d H:i:s');
 }
 
 function punchIn(int $userId, ?string $at = null): bool {
     $userId = (int)$userId;
     if ($userId <= 0) return false;
     $at = $at ?: hrNow();
-    $workDateToday = date('Y-m-d', strtotime($at));
+    $atDt = hrParseBase($at);
+    if (!$atDt) return false;
+    $at = $atDt->format('Y-m-d H:i:s');
+    $workDateToday = $atDt->format('Y-m-d');
     $workDate = $workDateToday;
-    $tNow = date('H:i:s', strtotime($at));
-    $yesterday = date('Y-m-d', strtotime($workDateToday . ' -1 day'));
+    $tNow = $atDt->format('H:i:s');
+    $yesterday = $atDt->modify('-1 day')->format('Y-m-d');
 
     $shiftToday = getUserShiftForDate($userId, $workDateToday);
     $shiftYesterday = getUserShiftForDate($userId, $yesterday);
@@ -490,8 +538,11 @@ function punchOut(int $userId, ?string $at = null): bool {
     $userId = (int)$userId;
     if ($userId <= 0) return false;
     $at = $at ?: hrNow();
+    $atDt = hrParseBase($at);
+    if (!$atDt) return false;
+    $at = $atDt->format('Y-m-d H:i:s');
     $openDay = getOpenAttendanceDayForUser($userId, $at);
-    $workDate = $openDay ? (string)($openDay['work_date'] ?? '') : date('Y-m-d', strtotime($at));
+    $workDate = $openDay ? (string)($openDay['work_date'] ?? '') : $atDt->format('Y-m-d');
     $day = $openDay ?: ensureAttendanceDay($userId, $workDate);
     if (!$day) return false;
     $dayId = (int)($day['id'] ?? 0);
@@ -518,8 +569,11 @@ function startAttendanceState(int $userId, string $state, ?string $at = null): a
     $userId = (int)$userId;
     if ($userId <= 0) return ['ok' => false, 'error' => 'Invalid user'];
     $at = $at ?: hrNow();
+    $atDt = hrParseBase($at);
+    if (!$atDt) return ['ok' => false, 'error' => 'Invalid time'];
+    $at = $atDt->format('Y-m-d H:i:s');
     $openDay = getOpenAttendanceDayForUser($userId, $at);
-    $workDate = $openDay ? (string)($openDay['work_date'] ?? '') : date('Y-m-d', strtotime($at));
+    $workDate = $openDay ? (string)($openDay['work_date'] ?? '') : $atDt->format('Y-m-d');
     $day = $openDay ?: ensureAttendanceDay($userId, $workDate);
     if (!$day) return ['ok' => false, 'error' => 'Attendance record missing'];
     if (empty($day['punch_in'])) {
@@ -552,7 +606,7 @@ function startAttendanceState(int $userId, string $state, ?string $at = null): a
     $ok = $stmt->execute();
     $stmt->close();
     if ($ok) {
-        $stmt2 = $conn->prepare("UPDATE hr_attendance_days SET current_state = ?, status = CASE WHEN status IN ('Full Day','Half Day','Absent','Paid Leave','Unpaid Leave') THEN status ELSE 'In Progress' END, updated_at = NOW() WHERE id = ?");
+        $stmt2 = $conn->prepare("UPDATE hr_attendance_days SET current_state = ?, status = CASE WHEN status IN ('Full Day','Half Day','Absent','Paid Leave','Unpaid Leave') THEN status ELSE status END, updated_at = NOW() WHERE id = ?");
         if ($stmt2) {
             $stmt2->bind_param('si', $state, $dayId);
             $stmt2->execute();
@@ -566,12 +620,15 @@ function endAttendanceState(int $userId, ?string $at = null): bool {
     $userId = (int)$userId;
     if ($userId <= 0) return false;
     $at = $at ?: hrNow();
+    $atDt = hrParseBase($at);
+    if (!$atDt) return false;
+    $at = $atDt->format('Y-m-d H:i:s');
     $openDay = getOpenAttendanceDayForUser($userId, $at);
     if ($openDay) {
         $dayId = (int)($openDay['id'] ?? 0);
         return $dayId > 0 ? endAttendanceStateByDayId($dayId, $at) : false;
     }
-    $workDate = date('Y-m-d', strtotime($at));
+    $workDate = $atDt->format('Y-m-d');
     $day = getAttendanceDay($userId, $workDate);
     if (!$day) return false;
     return endAttendanceStateByDayId((int)$day['id'], $at);
@@ -585,9 +642,12 @@ function endAttendanceStateByDayId(int $attendanceDayId, string $at): bool {
     if (!$open) return true;
     $start = (string)($open['start_at'] ?? '');
     $state = (string)($open['state'] ?? '');
-    $startTs = strtotime($start);
-    $endTs = strtotime($at);
-    if ($startTs === false || $endTs === false || $endTs <= $startTs) $endTs = $startTs;
+    $startDt = hrParseBase($start);
+    $endDt = hrParseBase($at);
+    if (!$startDt || !$endDt) return false;
+    if ($endDt <= $startDt) $endDt = $startDt;
+    $startTs = $startDt->getTimestamp();
+    $endTs = $endDt->getTimestamp();
     $minutes = (int)floor(($endTs - $startTs) / 60);
 
     if (in_array($state, ['Break1','Break2','Lunch'], true)) {
@@ -596,8 +656,8 @@ function endAttendanceStateByDayId(int $attendanceDayId, string $at): bool {
         $remaining = max(0, (int)$limits[$state] - $used);
         if ($minutes > $remaining) {
             $minutes = $remaining;
-            $endTs = $startTs + ($minutes * 60);
-            $at = date('Y-m-d H:i:s', $endTs);
+            $endDt = $startDt->modify('+' . $minutes . ' minutes');
+            $at = $endDt->format('Y-m-d H:i:s');
         }
     }
 
@@ -666,12 +726,17 @@ function recomputeAttendanceDay(int $attendanceDayId): bool {
     $grace = isset($day['grace_minutes']) && $day['grace_minutes'] !== null ? (int)$day['grace_minutes'] : (int)($policy['grace_minutes'] ?? 10);
     if ($grace < 0) $grace = 0;
     if ($grace > 120) $grace = 120;
+    $inDt = null;
+    $shiftDt = null;
     if ($pIn !== '' && $shiftStart !== '' && $workDate !== '') {
-        $inTs = strtotime($pIn);
-        $shiftTs = strtotime($workDate . ' ' . $shiftStart);
-        if ($inTs !== false && $shiftTs !== false) {
-            $allowed = $shiftTs + (max(0, $grace) * 60);
-            if ($inTs > $allowed) $lateMinutes = (int)floor(($inTs - $allowed) / 60);
+        $inDt = hrParseBase($pIn);
+        if (strlen($shiftStart) === 5) $shiftStart .= ':00';
+        try { $shiftDt = new DateTimeImmutable($workDate . ' ' . $shiftStart, hrBaseTz()); } catch (Throwable $e) { $shiftDt = null; }
+        if ($inDt && $shiftDt) {
+            $allowedDt = $shiftDt->modify('+' . max(0, $grace) . ' minutes');
+            if ($inDt > $allowedDt) {
+                $lateMinutes = (int)floor(($inDt->getTimestamp() - $allowedDt->getTimestamp()) / 60);
+            }
         }
     }
     if ($pIn === '') {
@@ -692,60 +757,26 @@ function recomputeAttendanceDay(int $attendanceDayId): bool {
     }
 
     $workMinutes = 0;
-    if ($pOut !== '') {
-        $inTs = strtotime($pIn);
-        $outTs = strtotime($pOut);
-        if ($inTs !== false && $outTs !== false) {
-            if ($outTs <= $inTs) $outTs += 86400;
-        }
-        if ($inTs !== false && $outTs !== false && $outTs > $inTs) {
-            $workMinutes = (int)floor(($outTs - $inTs) / 60) - $breakMinutes;
+    if ($pOut !== '' && $inDt) {
+        $outDt = hrParseBase($pOut);
+        if ($outDt && $outDt <= $inDt) $outDt = $outDt->modify('+1 day');
+        if ($outDt && $outDt > $inDt) {
+            $workMinutes = (int)floor(($outDt->getTimestamp() - $inDt->getTimestamp()) / 60) - $breakMinutes;
             if ($workMinutes < 0) $workMinutes = 0;
         }
     }
 
-    $status = 'In Progress';
-    if ($pOut !== '') {
-        $status = ($workMinutes >= (7 * 60)) ? 'Full Day' : 'Half Day';
-        if ($workMinutes <= 0) $status = 'Half Day';
-    }
     $isLeave = in_array($currentStatus, ['Paid Leave','Unpaid Leave','paid_leave','unpaid_leave'], true);
-    $forceCloseAbsent = false;
-    if (!$isLeave && $lateMinutes > 0 && preg_match('/^\d{4}-\d{2}-\d{2}$/', $workDate)) {
-        $halfAt = (int)($policy['late_halfday_at'] ?? 3);
-        $absentAt = (int)($policy['late_absent_at'] ?? 4);
-        $yy = (int)substr($workDate, 0, 4);
-        $mo = (int)substr($workDate, 5, 2);
-        if ($yy > 0 && $mo > 0) {
-            $monthStart = sprintf('%04d-%02d-01', $yy, $mo);
-            $monthEnd = sprintf('%04d-%02d-%02d', $yy, $mo, cal_days_in_month(CAL_GREGORIAN, $mo, $yy));
-            $prevLateCount = 0;
-            $stmtL = $conn->prepare("
-                SELECT COUNT(*) AS cnt
-                FROM hr_attendance_days
-                WHERE user_id = ?
-                  AND work_date >= ?
-                  AND work_date <= ?
-                  AND id <> ?
-                  AND COALESCE(late_minutes, 0) > 0
-                  AND status NOT IN ('Paid Leave','Unpaid Leave','paid_leave','unpaid_leave')
-            ");
-            if ($stmtL) {
-                $stmtL->bind_param('issi', $userId, $monthStart, $monthEnd, $attendanceDayId);
-                $stmtL->execute();
-                $rowL = $stmtL->get_result()->fetch_assoc() ?: ['cnt' => 0];
-                $stmtL->close();
-                $prevLateCount = (int)($rowL['cnt'] ?? 0);
-            }
-            $lateCount = $prevLateCount + 1;
-            if ($lateCount >= $absentAt) {
-                $status = 'Absent';
-                $breakMinutes = 0;
-                $workMinutes = 0;
-                $forceCloseAbsent = true;
-            } elseif ($lateCount >= $halfAt) {
-                if ($status !== 'Absent') $status = 'Half Day';
-            }
+    $status = 'In Progress';
+    if ($isLeave) {
+        $status = $currentStatus === 'paid_leave' ? 'Paid Leave' : ($currentStatus === 'unpaid_leave' ? 'Unpaid Leave' : $currentStatus);
+    } elseif ($pOut !== '') {
+        if ($workMinutes < (4 * 60)) {
+            $status = 'Absent';
+        } elseif ($workMinutes < 450) {
+            $status = 'Half Day';
+        } else {
+            $status = 'Full Day';
         }
     }
 
@@ -754,41 +785,6 @@ function recomputeAttendanceDay(int $attendanceDayId): bool {
     $stmt->bind_param('iiisi', $breakMinutes, $workMinutes, $lateMinutes, $status, $attendanceDayId);
     $ok = $stmt->execute();
     $stmt->close();
-    if ($ok && $forceCloseAbsent) {
-        $stmt2 = $conn->prepare("UPDATE hr_attendance_days SET punch_out = COALESCE(punch_out, punch_in), current_state = 'Off', updated_at = NOW() WHERE id = ?");
-        if ($stmt2) {
-            $stmt2->bind_param('i', $attendanceDayId);
-            $stmt2->execute();
-            $stmt2->close();
-        }
-        $open = getOpenAttendanceState($attendanceDayId);
-        if ($open) {
-            $at = hrNow();
-            $start = (string)($open['start_at'] ?? '');
-            $state = (string)($open['state'] ?? '');
-            $startTs = strtotime($start);
-            $endTs = strtotime($at);
-            if ($startTs === false || $endTs === false || $endTs <= $startTs) $endTs = $startTs;
-            $minutes = (int)floor(($endTs - $startTs) / 60);
-            if (in_array($state, ['Break1','Break2','Lunch'], true)) {
-                $limits = ['Break1' => 15, 'Break2' => 15, 'Lunch' => 45];
-                $used = getBreakMinutesUsed($attendanceDayId, $state);
-                $remaining = max(0, (int)$limits[$state] - $used);
-                if ($minutes > $remaining) {
-                    $minutes = $remaining;
-                    $endTs = $startTs + ($minutes * 60);
-                    $at = date('Y-m-d H:i:s', $endTs);
-                }
-            }
-            $stmtS = $conn->prepare("UPDATE hr_attendance_states SET end_at = ?, minutes = ? WHERE id = ?");
-            if ($stmtS) {
-                $sid = (int)($open['id'] ?? 0);
-                $stmtS->bind_param('sii', $at, $minutes, $sid);
-                $stmtS->execute();
-                $stmtS->close();
-            }
-        }
-    }
     return $ok;
 }
 
@@ -916,6 +912,61 @@ function getAttendanceMonthSummary(int $userId, int $year, int $month): array {
     ];
 }
 
+function getPaidLeaveKittyForUser(int $userId, ?string $asOfDate = null): array {
+    $userId = (int)$userId;
+    if ($userId <= 0) return ['entitled' => 0, 'taken' => 0, 'pending' => 0, 'join_date' => null, 'taken_dates' => [], 'upcoming_holidays' => []];
+    ensureDatabaseSchema();
+    $asOf = $asOfDate !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $asOfDate) ? $asOfDate : (new DateTimeImmutable('now', hrBaseTz()))->format('Y-m-d');
+    $conn = getDbConnection();
+    $stmt = $conn->prepare("SELECT date_of_joining, created_at FROM users WHERE id = ? LIMIT 1");
+    $row = [];
+    if ($stmt) {
+        $stmt->bind_param('i', $userId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc() ?: [];
+        $stmt->close();
+    }
+    $join = (string)($row['date_of_joining'] ?? '');
+    if ($join === '') {
+        $ca = (string)($row['created_at'] ?? '');
+        $join = $ca !== '' ? substr($ca, 0, 10) : '';
+    }
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $join)) $join = $asOf;
+
+    $joinDt = new DateTimeImmutable($join . ' 00:00:00', hrBaseTz());
+    $asOfDt = new DateTimeImmutable($asOf . ' 00:00:00', hrBaseTz());
+    if ($joinDt > $asOfDt) $joinDt = $asOfDt;
+
+    $months = (((int)$asOfDt->format('Y') - (int)$joinDt->format('Y')) * 12) + ((int)$asOfDt->format('n') - (int)$joinDt->format('n')) + 1;
+    if ($months < 0) $months = 0;
+
+    $takenDates = [];
+    $stmt2 = $conn->prepare("SELECT work_date FROM hr_attendance_days WHERE user_id = ? AND status = 'Paid Leave' AND work_date <= ? ORDER BY work_date DESC");
+    if ($stmt2) {
+        $stmt2->bind_param('is', $userId, $asOf);
+        $stmt2->execute();
+        $rs = $stmt2->get_result();
+        while ($r = $rs->fetch_assoc()) {
+            $d = (string)($r['work_date'] ?? '');
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) $takenDates[] = $d;
+        }
+        $stmt2->close();
+    }
+
+    $taken = count($takenDates);
+    $pending = $months - $taken;
+    if ($pending < 0) $pending = 0;
+    $upcoming = getUpcomingHolidays($asOf, 10, 'US');
+    return [
+        'entitled' => (int)$months,
+        'taken' => (int)$taken,
+        'pending' => (int)$pending,
+        'join_date' => $joinDt->format('Y-m-d'),
+        'taken_dates' => $takenDates,
+        'upcoming_holidays' => is_array($upcoming) ? $upcoming : [],
+    ];
+}
+
 function hrRepairOvernightOrphanPunchOutForUserRange(int $userId, string $startDate, string $endDate): void {
     $userId = (int)$userId;
     if ($userId <= 0) return;
@@ -1032,6 +1083,7 @@ function getSalarySettingForMonth(int $userId, int $year, int $month): ?array {
     if ($userId <= 0) return null;
     ensureDatabaseSchema();
     $end = sprintf('%04d-%02d-%02d', $year, $month, cal_days_in_month(CAL_GREGORIAN, $month, $year));
+    $start = sprintf('%04d-%02d-01', $year, $month);
     $conn = getDbConnection();
     $stmt = $conn->prepare("SELECT * FROM hr_salary_settings WHERE user_id = ? AND effective_date <= ? ORDER BY effective_date DESC, id DESC LIMIT 1");
     if (!$stmt) return null;
@@ -1039,6 +1091,14 @@ function getSalarySettingForMonth(int $userId, int $year, int $month): ?array {
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc() ?: null;
     $stmt->close();
+    if ($row) return $row;
+    $stmt2 = $conn->prepare("SELECT * FROM hr_salary_settings WHERE user_id = ? AND effective_date >= ? ORDER BY effective_date ASC, id ASC LIMIT 1");
+    if (!$stmt2) return null;
+    $stmt2->bind_param('is', $userId, $start);
+    $stmt2->execute();
+    $row2 = $stmt2->get_result()->fetch_assoc() ?: null;
+    $stmt2->close();
+    if ($row2) return $row2;
     return $row;
 }
 
@@ -1128,6 +1188,7 @@ function getSalaryStructureForMonth(int $userId, int $year, int $month): ?array 
     if ($userId <= 0) return null;
     ensureDatabaseSchema();
     $end = sprintf('%04d-%02d-%02d', $year, $month, cal_days_in_month(CAL_GREGORIAN, $month, $year));
+    $start = sprintf('%04d-%02d-01', $year, $month);
     $conn = getDbConnection();
     $stmt = $conn->prepare("SELECT * FROM hr_salary_structures WHERE user_id = ? AND effective_date <= ? ORDER BY effective_date DESC, id DESC LIMIT 1");
     if (!$stmt) return null;
@@ -1135,6 +1196,14 @@ function getSalaryStructureForMonth(int $userId, int $year, int $month): ?array 
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc() ?: null;
     $stmt->close();
+    if ($row) return $row;
+    $stmt2 = $conn->prepare("SELECT * FROM hr_salary_structures WHERE user_id = ? AND effective_date >= ? ORDER BY effective_date ASC, id ASC LIMIT 1");
+    if (!$stmt2) return null;
+    $stmt2->bind_param('is', $userId, $start);
+    $stmt2->execute();
+    $row2 = $stmt2->get_result()->fetch_assoc() ?: null;
+    $stmt2->close();
+    if ($row2) return $row2;
     return $row;
 }
 
@@ -2176,6 +2245,22 @@ function ensureLeadsTrackingColumns(): void {
             @$conn->query("UPDATE leads SET company_domain = LOWER(SUBSTRING_INDEX(email,'@',-1)) WHERE (company_domain IS NULL OR company_domain = '') AND email LIKE '%@%'");
         }
     }
+
+    if (!$hasColumn('leads', 'company_website')) {
+        if (!$conn->query("ALTER TABLE leads ADD COLUMN company_website VARCHAR(255) NULL")) {
+            error_log('ensureLeadsTrackingColumns: failed to add company_website: ' . ($conn->error ?? 'unknown'));
+        }
+    }
+    if (!$hasColumn('leads', 'company_size')) {
+        if (!$conn->query("ALTER TABLE leads ADD COLUMN company_size VARCHAR(80) NULL")) {
+            error_log('ensureLeadsTrackingColumns: failed to add company_size: ' . ($conn->error ?? 'unknown'));
+        }
+    }
+    if (!$hasColumn('leads', 'software_implementation_timeline')) {
+        if (!$conn->query("ALTER TABLE leads ADD COLUMN software_implementation_timeline VARCHAR(255) NULL")) {
+            error_log('ensureLeadsTrackingColumns: failed to add software_implementation_timeline: ' . ($conn->error ?? 'unknown'));
+        }
+    }
 }
 
 /**
@@ -3102,6 +3187,10 @@ function updateLead(int $id, array $data): bool {
     $types .= 'i';
     $params[] = $id;
     $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        error_log('updateLead prepare failed: ' . ($conn->error ?? 'unknown') . ' SQL=' . $sql);
+        return false;
+    }
     $stmt->bind_param($types, ...$params);
     $ok = $stmt->execute();
     $stmt->close();
@@ -3419,11 +3508,135 @@ function getSalesLeadActivities(int $salesLeadId, int $limit = 200): array {
     return $rows;
 }
 
+function getSalesDirectorUserIds(): array {
+    static $cache = null;
+    if (is_array($cache)) return $cache;
+    $conn = getDbConnection();
+    $rs = $conn->query("SELECT id FROM users WHERE role = 'sales_director' ORDER BY id");
+    $ids = [];
+    if ($rs) {
+        while ($r = $rs->fetch_assoc()) {
+            $id = (int)($r['id'] ?? 0);
+            if ($id > 0) $ids[$id] = true;
+        }
+    }
+    $cache = array_keys($ids);
+    return $cache;
+}
+
+function getSalesManagerForSdr(int $sdrUserId): ?int {
+    $sdrUserId = (int)$sdrUserId;
+    if ($sdrUserId <= 0) return null;
+    ensureDatabaseSchema();
+    $conn = getDbConnection();
+    $stmt = $conn->prepare("SELECT manager_user_id FROM sales_manager_sdr_map WHERE sdr_user_id = ? ORDER BY id ASC LIMIT 1");
+    if (!$stmt) return null;
+    $stmt->bind_param('i', $sdrUserId);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc() ?: null;
+    $stmt->close();
+    $mid = (int)($row['manager_user_id'] ?? 0);
+    return $mid > 0 ? $mid : null;
+}
+
+function shouldIncludeAdminsInSalesNotifications(): bool {
+    $v = (string)(function_exists('getAppSetting') ? (getAppSetting('notifications.sales_include_admins', '1') ?? '1') : '1');
+    return trim($v) !== '0';
+}
+
+function getSalesNotificationRecipientsForLeadRow(array $lead, array $opts = []): array {
+    $ids = [];
+    $leadId = (int)($lead['id'] ?? 0);
+    $ownerId = (int)($lead['owner_id'] ?? 0);
+    $createdBy = (int)($lead['created_by'] ?? 0);
+    $managerId = (int)($lead['sales_manager_id'] ?? 0);
+
+    if ($createdBy > 0) $ids[$createdBy] = true;
+    if ($ownerId > 0) $ids[$ownerId] = true;
+
+    if ($managerId <= 0 && $ownerId > 0) {
+        $m = getSalesManagerForSdr($ownerId);
+        if ($m) $managerId = (int)$m;
+    }
+    if ($managerId > 0) $ids[$managerId] = true;
+
+    foreach (getSalesDirectorUserIds() as $did) {
+        $did = (int)$did;
+        if ($did > 0) $ids[$did] = true;
+    }
+
+    $includeAdmins = array_key_exists('include_admins', $opts) ? !empty($opts['include_admins']) : shouldIncludeAdminsInSalesNotifications();
+    if ($includeAdmins) {
+        $conn = getDbConnection();
+        $rs = $conn->query("SELECT id FROM users WHERE role = 'admin' ORDER BY id");
+        if ($rs) {
+            while ($r = $rs->fetch_assoc()) {
+                $aid = (int)($r['id'] ?? 0);
+                if ($aid > 0) $ids[$aid] = true;
+            }
+        }
+    }
+
+    $extra = $opts['extra_user_ids'] ?? [];
+    if (is_array($extra)) {
+        foreach ($extra as $x) {
+            $x = (int)$x;
+            if ($x > 0) $ids[$x] = true;
+        }
+    }
+
+    $exclude = $opts['exclude_user_id'] ?? 0;
+    $exclude = (int)$exclude;
+    if ($exclude > 0) unset($ids[$exclude]);
+
+    if ($leadId > 0) {
+        $company = trim((string)($lead['company_name'] ?? ''));
+        $title = trim((string)($opts['title'] ?? ''));
+        if ($company !== '' && $title !== '') {
+            $conn = getDbConnection();
+            $stmt = $conn->prepare("SELECT DISTINCT created_by FROM sales_lead_activities WHERE sales_lead_id = ? ORDER BY created_at DESC LIMIT 50");
+            if ($stmt) {
+                $stmt->bind_param('i', $leadId);
+                $stmt->execute();
+                $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+                $stmt->close();
+                foreach ($rows as $r) {
+                    $uid = (int)($r['created_by'] ?? 0);
+                    if ($uid > 0) $ids[$uid] = true;
+                }
+            }
+        }
+    }
+
+    return array_keys($ids);
+}
+
+function notifySalesLeadUsers(int $salesLeadId, string $type, string $title, ?string $message, string $link, array $opts = []): void {
+    $lead = getSalesLeadById($salesLeadId);
+    if (!$lead) return;
+    $opts['title'] = $title;
+    $recipients = getSalesNotificationRecipientsForLeadRow($lead, $opts);
+    if (empty($recipients)) return;
+    foreach ($recipients as $uid) {
+        createNotificationSmart((int)$uid, $type, $title, $message, $link, $opts);
+    }
+}
+
 function updateSalesLeadActivity(int $activityId, string $status, string $comment, int $updatedBy): bool {
     $conn = getDbConnection();
     $status = trim($status);
     $comment = trim($comment);
     if ($comment === '') throw new RuntimeException('Comment is required');
+
+    $leadId = 0;
+    $stmt0 = $conn->prepare("SELECT sales_lead_id FROM sales_lead_activities WHERE id = ? LIMIT 1");
+    if ($stmt0) {
+        $stmt0->bind_param('i', $activityId);
+        $stmt0->execute();
+        $row0 = $stmt0->get_result()->fetch_assoc() ?: [];
+        $stmt0->close();
+        $leadId = (int)($row0['sales_lead_id'] ?? 0);
+    }
 
     $stmt = $conn->prepare("UPDATE sales_lead_activities
         SET status = ?, comment = ?, updated_by = ?, updated_at = NOW()
@@ -3431,6 +3644,21 @@ function updateSalesLeadActivity(int $activityId, string $status, string $commen
     $stmt->bind_param('ssii', $status, $comment, $updatedBy, $activityId);
     $ok = $stmt->execute();
     $stmt->close();
+
+    if ($ok && $leadId > 0) {
+        $lead = getSalesLeadById($leadId);
+        $company = $lead ? trim((string)($lead['company_name'] ?? '')) : '';
+        $titleN = 'Follow-up Updated';
+        $body = ($company !== '' ? ($company . ' · ') : '') . $comment;
+        notifySalesLeadUsers($leadId, 'sales.followup.updated', $titleN, $body, '../sales/lead-view?id=' . (int)$leadId, [
+            'triggered_by_user_id' => $updatedBy,
+            'importance' => 'normal',
+            'show_toast' => true,
+            'dedup_key' => 'sales_followup_updated:' . $leadId . ':' . $activityId,
+            'dedup_window_min' => 60,
+            'exclude_user_id' => $updatedBy,
+        ]);
+    }
     return $ok;
 }
 
@@ -3667,11 +3895,20 @@ function createSalesLead(array $data, int $createdBy): int {
     if (!$stmt->execute()) throw new RuntimeException('Failed to create sales lead');
     $id = (int)$conn->insert_id;
     $stmt->close();
+    notifySalesLeadUsers($id, 'sales.prospect.created', 'New Prospect Added', $companyName, '../sales/lead-view?id=' . $id, [
+        'triggered_by_user_id' => $createdBy,
+        'importance' => 'normal',
+        'show_toast' => true,
+        'dedup_key' => 'sales_prospect_created:' . $id,
+        'dedup_window_min' => 1440,
+        'exclude_user_id' => 0,
+    ]);
     return $id;
 }
 
 function updateSalesLead(int $id, array $data, int $updatedBy): bool {
     $conn = getDbConnection();
+    $before = getSalesLeadById($id);
     $allowed = [
         'company_name','website','industry','company_size','country',
         'contact_name','contact_job_title','contact_email','contact_phone','linkedin_url',
@@ -3710,6 +3947,65 @@ function updateSalesLead(int $id, array $data, int $updatedBy): bool {
     $stmt->bind_param(str_repeat('s', count($params)), ...$params);
     $ok = $stmt->execute();
     $stmt->close();
+
+    if ($ok && $before) {
+        $after = getSalesLeadById($id) ?: $before;
+        $company = trim((string)($after['company_name'] ?? ($before['company_name'] ?? '')));
+        $link = '../sales/lead-view?id=' . (int)$id;
+
+        $oldStatus = (string)($before['status'] ?? '');
+        $newStatus = (string)($after['status'] ?? $oldStatus);
+        if ($oldStatus !== '' && $newStatus !== '' && $oldStatus !== $newStatus) {
+            notifySalesLeadUsers($id, 'sales.prospect.status_changed', 'Prospect Status Changed', ($company !== '' ? ($company . ' · ') : '') . $oldStatus . ' → ' . $newStatus, $link, [
+                'triggered_by_user_id' => $updatedBy,
+                'importance' => 'normal',
+                'show_toast' => true,
+                'dedup_key' => 'sales_status:' . $id . ':' . sha1($oldStatus . '>' . $newStatus),
+                'dedup_window_min' => 60,
+                'exclude_user_id' => $updatedBy,
+            ]);
+        }
+
+        $oldOwner = (int)($before['owner_id'] ?? 0);
+        $newOwner = (int)($after['owner_id'] ?? $oldOwner);
+        if ($oldOwner > 0 && $newOwner > 0 && $oldOwner !== $newOwner) {
+            notifySalesLeadUsers($id, 'sales.prospect.assigned', 'Lead Assigned/Reassigned', ($company !== '' ? ($company . ' · ') : '') . 'Owner changed', $link, [
+                'triggered_by_user_id' => $updatedBy,
+                'importance' => 'high',
+                'show_toast' => true,
+                'dedup_key' => 'sales_assigned:' . $id . ':' . $oldOwner . '>' . $newOwner,
+                'dedup_window_min' => 1440,
+                'exclude_user_id' => $updatedBy,
+                'extra_user_ids' => [$oldOwner, $newOwner],
+            ]);
+        }
+
+        $oldMgr = (int)($before['sales_manager_id'] ?? 0);
+        $newMgr = (int)($after['sales_manager_id'] ?? $oldMgr);
+        if ($newMgr !== $oldMgr) {
+            notifySalesLeadUsers($id, 'sales.prospect.updated', 'Prospect Updated', ($company !== '' ? ($company . ' · ') : '') . 'Sales manager updated', $link, [
+                'triggered_by_user_id' => $updatedBy,
+                'importance' => 'normal',
+                'show_toast' => false,
+                'dedup_key' => 'sales_mgr:' . $id . ':' . $oldMgr . '>' . $newMgr,
+                'dedup_window_min' => 1440,
+                'exclude_user_id' => $updatedBy,
+            ]);
+        }
+
+        $oldNf = trim((string)($before['next_follow_up_at'] ?? ''));
+        $newNf = trim((string)($after['next_follow_up_at'] ?? $oldNf));
+        if ($newNf !== '' && $newNf !== $oldNf) {
+            notifySalesLeadUsers($id, 'sales.followup.scheduled', 'Follow-up Scheduled', ($company !== '' ? ($company . ' · ') : '') . 'Follow-up at ' . date('Y-m-d H:i', strtotime($newNf)), $link, [
+                'triggered_by_user_id' => $updatedBy,
+                'importance' => 'normal',
+                'show_toast' => true,
+                'dedup_key' => 'sales_followup_set:' . $id . ':' . substr($newNf, 0, 16),
+                'dedup_window_min' => 1440,
+                'exclude_user_id' => $updatedBy,
+            ]);
+        }
+    }
     return $ok;
 }
 
@@ -3718,8 +4014,22 @@ function addSalesLeadActivity(int $salesLeadId, string $status, string $comment,
     $stmt = $conn->prepare("INSERT INTO sales_lead_activities (sales_lead_id, status, comment, created_by, created_at) VALUES (?,?,?,?,NOW())");
     $stmt->bind_param('issi', $salesLeadId, $status, $comment, $createdBy);
     $ok = $stmt->execute();
+    $actId = (int)$conn->insert_id;
     $stmt->close();
     if ($ok) {
+        $lead = getSalesLeadById($salesLeadId);
+        $company = $lead ? trim((string)($lead['company_name'] ?? '')) : '';
+        $titleN = 'Follow-up Added';
+        $body = ($company !== '' ? ($company . ' · ') : '') . $comment;
+        notifySalesLeadUsers($salesLeadId, 'sales.followup.added', $titleN, $body, '../sales/lead-view?id=' . (int)$salesLeadId, [
+            'triggered_by_user_id' => $createdBy,
+            'importance' => 'normal',
+            'show_toast' => true,
+            'dedup_key' => 'sales_followup_added:' . $salesLeadId . ':' . $actId,
+            'dedup_window_min' => 60,
+            'exclude_user_id' => $createdBy,
+        ]);
+
         $closed = in_array($status, ['Closed Won','Closed Lost'], true);
         if ($closed) {
             $upd = $conn->prepare("UPDATE sales_leads SET last_activity_at = NOW(), next_follow_up_at = NULL, updated_by = ?, updated_at = NOW() WHERE id = ?");
@@ -3740,6 +4050,99 @@ function addSalesLeadActivity(int $salesLeadId, string $status, string $comment,
         }
     }
     return $ok;
+}
+
+function notifySalesFollowupRemindersForUser(int $userId): void {
+    $userId = (int)$userId;
+    if ($userId <= 0) return;
+    $conn = getDbConnection();
+    $stmtU = $conn->prepare("SELECT role FROM users WHERE id = ? LIMIT 1");
+    $role = '';
+    if ($stmtU) {
+        $stmtU->bind_param('i', $userId);
+        $stmtU->execute();
+        $u = $stmtU->get_result()->fetch_assoc() ?: [];
+        $stmtU->close();
+        $role = strtolower(trim((string)($u['role'] ?? '')));
+    }
+    if (!in_array($role, ['admin','sales_director','sales_manager','sdr'], true)) return;
+
+    $where = ["sl.next_follow_up_at IS NOT NULL", "sl.status NOT IN ('Closed Won','Closed Lost')", "sl.next_follow_up_at >= (NOW() - INTERVAL 6 HOUR)", "sl.next_follow_up_at <= (NOW() + INTERVAL 6 HOUR)"];
+    $params = [];
+    $types = '';
+    if ($role === 'sdr') {
+        $where[] = "sl.owner_id = ?";
+        $params[] = $userId;
+        $types .= 'i';
+    } elseif ($role === 'sales_manager') {
+        $where[] = "(sl.sales_manager_id = ? OR sl.owner_id IN (SELECT sdr_user_id FROM sales_manager_sdr_map WHERE manager_user_id = ?))";
+        $params[] = $userId;
+        $params[] = $userId;
+        $types .= 'ii';
+    }
+
+    $sql = "SELECT sl.id, sl.company_name, sl.next_follow_up_at FROM sales_leads sl WHERE " . implode(' AND ', $where) . " ORDER BY sl.next_follow_up_at ASC LIMIT 50";
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) return;
+    if ($types) $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+    $stmt->close();
+
+    $nowTs = time();
+    foreach ($rows as $r) {
+        $leadId = (int)($r['id'] ?? 0);
+        if ($leadId <= 0) continue;
+        $nfa = (string)($r['next_follow_up_at'] ?? '');
+        if ($nfa === '') continue;
+        $ts = strtotime($nfa);
+        if ($ts === false) continue;
+        $diffMin = (int)floor(($ts - $nowTs) / 60);
+        $company = trim((string)($r['company_name'] ?? ''));
+        $when = date('Y-m-d H:i', $ts);
+        $link = '../sales/lead-view?id=' . $leadId;
+
+        $bucket = null;
+        $typeN = '';
+        $title = '';
+        $importance = 'normal';
+        $showToast = true;
+        $dedupWindow = 90;
+
+        if ($diffMin >= 25 && $diffMin <= 30) {
+            $bucket = '30';
+            $typeN = 'sales.followup.alert_30';
+            $title = 'Follow-up Due (30 min)';
+        } elseif ($diffMin >= 8 && $diffMin <= 10) {
+            $bucket = '10';
+            $typeN = 'sales.followup.alert_10';
+            $title = 'Follow-up Due (10 min)';
+            $importance = 'high';
+        } elseif ($diffMin >= -1 && $diffMin <= 1) {
+            $bucket = '0';
+            $typeN = 'sales.followup.due_now';
+            $title = 'Follow-up Due Now';
+            $importance = 'high';
+        } elseif ($diffMin <= -5 && $diffMin >= -180) {
+            $bucket = 'missed';
+            $typeN = 'sales.followup.missed';
+            $title = 'Follow-up Missed';
+            $importance = 'high';
+            $dedupWindow = 240;
+        } else {
+            continue;
+        }
+
+        $body = ($company !== '' ? ($company . ' · ') : '') . $when;
+        createNotificationSmart($userId, $typeN, $title, $body, $link, [
+            'triggered_by_user_id' => 0,
+            'importance' => $importance,
+            'show_toast' => $showToast,
+            'dedup_key' => 'sales_followup:' . $bucket . ':' . $leadId . ':' . substr($nfa, 0, 16),
+            'dedup_window_min' => $dedupWindow,
+            'visibility_scope' => 'direct',
+        ]);
+    }
 }
 
 function findDuplicateClientsByNameOrDomain(string $name, string $website): array {
@@ -4459,7 +4862,10 @@ function ensureDatabaseSchema(): void {
     $conn->query("CREATE TABLE IF NOT EXISTS notifications (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
+        campaign_id INT NULL,
+        triggered_by_user_id INT NULL,
         type VARCHAR(40) NOT NULL,
+        visibility_scope VARCHAR(24) NOT NULL DEFAULT 'direct',
         title VARCHAR(180) NOT NULL,
         body TEXT NULL,
         link_url VARCHAR(255) NULL,
@@ -4471,13 +4877,20 @@ function ensureDatabaseSchema(): void {
         read_at DATETIME NULL,
         INDEX idx_user_created(user_id, created_at),
         INDEX idx_user_read(user_id, is_read),
+        INDEX idx_campaign_created(campaign_id, created_at),
+        INDEX idx_user_campaign(user_id, campaign_id),
         INDEX idx_user_dedup(user_id, type, dedup_key)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    $addColumn('notifications', 'campaign_id', "INT NULL AFTER `user_id`");
+    $addColumn('notifications', 'triggered_by_user_id', "INT NULL AFTER `campaign_id`");
+    $addColumn('notifications', 'visibility_scope', "VARCHAR(24) NOT NULL DEFAULT 'direct' AFTER `type`");
     $addColumn('notifications', 'dedup_key', "CHAR(40) NULL AFTER `link_url`");
     $addColumn('notifications', 'importance', "VARCHAR(12) NOT NULL DEFAULT 'normal' AFTER `dedup_key`");
     $addColumn('notifications', 'show_toast', "TINYINT(1) NOT NULL DEFAULT 0 AFTER `importance`");
     $addIndex('notifications', 'idx_user_dedup', 'user_id, type, dedup_key');
+    $addIndex('notifications', 'idx_campaign_created', 'campaign_id, created_at');
+    $addIndex('notifications', 'idx_user_campaign', 'user_id, campaign_id');
 
     $conn->query("CREATE TABLE IF NOT EXISTS notification_preferences (
         user_id INT NOT NULL,
@@ -4493,7 +4906,10 @@ function ensureDatabaseSchema(): void {
     $conn->query("CREATE TABLE IF NOT EXISTS notification_digest_queue (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
+        campaign_id INT NULL,
+        triggered_by_user_id INT NULL,
         type VARCHAR(40) NOT NULL,
+        visibility_scope VARCHAR(24) NOT NULL DEFAULT 'direct',
         title VARCHAR(180) NOT NULL,
         body TEXT NULL,
         link_url VARCHAR(255) NULL,
@@ -4502,8 +4918,16 @@ function ensureDatabaseSchema(): void {
         processed_at DATETIME NULL,
         INDEX idx_user_created(user_id, created_at),
         INDEX idx_user_processed(user_id, processed_at),
-        INDEX idx_user_dedup(user_id, type, dedup_key)
+        INDEX idx_user_dedup(user_id, type, dedup_key),
+        INDEX idx_campaign_created(campaign_id, created_at),
+        INDEX idx_user_campaign(user_id, campaign_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $addColumn('notification_digest_queue', 'campaign_id', "INT NULL AFTER `user_id`");
+    $addColumn('notification_digest_queue', 'triggered_by_user_id', "INT NULL AFTER `campaign_id`");
+    $addColumn('notification_digest_queue', 'visibility_scope', "VARCHAR(24) NOT NULL DEFAULT 'direct' AFTER `type`");
+    $addIndex('notification_digest_queue', 'idx_campaign_created', 'campaign_id, created_at');
+    $addIndex('notification_digest_queue', 'idx_user_campaign', 'user_id, campaign_id');
 
     $conn->query("CREATE TABLE IF NOT EXISTS vendors (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -4999,7 +5423,7 @@ function ensureDatabaseSchema(): void {
     $verified = true;
 }
 
-function createNotification(int $userId, string $type, string $title, ?string $body = null, ?string $linkUrl = null): bool {
+function createNotification(int $userId, string $type, string $title, ?string $body = null, ?string $linkUrl = null, array $opts = []): bool {
     $conn = getDbConnection();
     if ($userId <= 0) return false;
     $type = trim($type);
@@ -5009,9 +5433,17 @@ function createNotification(int $userId, string $type, string $title, ?string $b
     $title = substr($title, 0, 180);
     if ($linkUrl !== null) $linkUrl = substr(trim($linkUrl), 0, 255);
 
-    $stmt = $conn->prepare("INSERT INTO notifications (user_id, type, title, body, link_url) VALUES (?, ?, ?, ?, ?)");
+    $campaignId = (int)($opts['campaign_id'] ?? 0);
+    $campaignId = $campaignId > 0 ? $campaignId : null;
+    $triggeredBy = (int)($opts['triggered_by_user_id'] ?? 0);
+    $triggeredBy = $triggeredBy > 0 ? $triggeredBy : null;
+    $scope = trim((string)($opts['visibility_scope'] ?? 'direct'));
+    if ($scope === '') $scope = 'direct';
+    $scope = substr($scope, 0, 24);
+
+    $stmt = $conn->prepare("INSERT INTO notifications (user_id, campaign_id, triggered_by_user_id, type, visibility_scope, title, body, link_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     if (!$stmt) return false;
-    $stmt->bind_param('issss', $userId, $type, $title, $body, $linkUrl);
+    $stmt->bind_param('iiisssss', $userId, $campaignId, $triggeredBy, $type, $scope, $title, $body, $linkUrl);
     $ok = $stmt->execute();
     $stmt->close();
     return $ok;
@@ -5053,6 +5485,13 @@ function createNotificationSmart(int $userId, string $type, string $title, ?stri
     if ($userId <= 0) return false;
     $type = trim($type);
     if ($type === '') $type = 'system';
+    $campaignId = (int)($opts['campaign_id'] ?? 0);
+    $campaignId = $campaignId > 0 ? $campaignId : null;
+    $triggeredBy = (int)($opts['triggered_by_user_id'] ?? 0);
+    $triggeredBy = $triggeredBy > 0 ? $triggeredBy : null;
+    $scope = trim((string)($opts['visibility_scope'] ?? ($campaignId ? 'campaign' : 'direct')));
+    if ($scope === '') $scope = ($campaignId ? 'campaign' : 'direct');
+    $scope = substr($scope, 0, 24);
     $title = trim($title);
     if ($title === '') return false;
     $title = substr($title, 0, 180);
@@ -5068,9 +5507,9 @@ function createNotificationSmart(int $userId, string $type, string $title, ?stri
 
     $dedupKey = trim((string)($opts['dedup_key'] ?? ''));
     if ($dedupKey === '') {
-        $dedupKey = sha1($type . '|' . $title . '|' . (string)$linkUrl . '|' . (string)$body);
+        $dedupKey = sha1(($campaignId ? ('c:' . (string)$campaignId) : 'c:0') . '|' . $type . '|' . $title . '|' . (string)$linkUrl . '|' . (string)$body);
     } else {
-        $dedupKey = sha1($type . '|' . $dedupKey);
+        $dedupKey = sha1(($campaignId ? ('c:' . (string)$campaignId) : 'c:0') . '|' . $type . '|' . $dedupKey);
     }
     $dedupWindowMin = (int)($opts['dedup_window_min'] ?? 10);
     if ($dedupWindowMin < 0) $dedupWindowMin = 0;
@@ -5096,28 +5535,159 @@ function createNotificationSmart(int $userId, string $type, string $title, ?stri
     }
 
     if ($mode === 'digest') {
-        $stmt = $conn->prepare("INSERT INTO notification_digest_queue (user_id, type, title, body, link_url, dedup_key) VALUES (?,?,?,?,?,?)");
+    $stmt = $conn->prepare("INSERT INTO notification_digest_queue (user_id, campaign_id, triggered_by_user_id, type, visibility_scope, title, body, link_url, dedup_key) VALUES (?,?,?,?,?,?,?,?,?)");
         if (!$stmt) return false;
-        $stmt->bind_param('isssss', $userId, $type, $title, $body, $linkUrl, $dedupKey);
+    $types = 'iii' . str_repeat('s', 6);
+    $stmt->bind_param($types, $userId, $campaignId, $triggeredBy, $type, $scope, $title, $body, $linkUrl, $dedupKey);
         $ok = $stmt->execute();
         $stmt->close();
         return $ok;
     }
 
-    $stmt = $conn->prepare("INSERT INTO notifications (user_id, type, title, body, link_url, dedup_key, importance, show_toast) VALUES (?,?,?,?,?,?,?,?)");
+    $stmt = $conn->prepare("INSERT INTO notifications (user_id, campaign_id, triggered_by_user_id, type, visibility_scope, title, body, link_url, dedup_key, importance, show_toast) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
     if (!$stmt) return false;
     $toastVal = $showToast ? 1 : 0;
-    $stmt->bind_param('issssssi', $userId, $type, $title, $body, $linkUrl, $dedupKey, $importance, $toastVal);
+    $types = 'iii' . str_repeat('s', 7) . 'i';
+    $stmt->bind_param($types, $userId, $campaignId, $triggeredBy, $type, $scope, $title, $body, $linkUrl, $dedupKey, $importance, $toastVal);
     $ok = $stmt->execute();
     $stmt->close();
     return $ok;
 }
 
+function getUserCampaignAccessMapForNotifications(int $userId): ?array {
+    static $cache = [];
+    $userId = (int)$userId;
+    if ($userId <= 0) return [];
+    if (isset($cache[$userId])) return $cache[$userId];
+
+    $conn = getDbConnection();
+    $stmtU = $conn->prepare("SELECT role, client_id, vendor_id FROM users WHERE id = ? LIMIT 1");
+    $role = '';
+    $clientId = 0;
+    $vendorId = 0;
+    if ($stmtU) {
+        $stmtU->bind_param('i', $userId);
+        $stmtU->execute();
+        $u = $stmtU->get_result()->fetch_assoc() ?: [];
+        $stmtU->close();
+        $role = strtolower(trim((string)($u['role'] ?? '')));
+        $clientId = (int)($u['client_id'] ?? 0);
+        $vendorId = (int)($u['vendor_id'] ?? 0);
+    }
+    if ($role === 'admin') {
+        $cache[$userId] = null;
+        return null;
+    }
+
+    $ids = [];
+    $stmt = $conn->prepare("SELECT id FROM campaigns WHERE owner_id = ?");
+    if ($stmt) {
+        $stmt->bind_param('i', $userId);
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+        $stmt->close();
+        foreach ($rows as $r) {
+            $cid = (int)($r['id'] ?? 0);
+            if ($cid > 0) $ids[$cid] = true;
+        }
+    }
+    foreach (getUserAssignedCampaignIds($userId, ['operations_campaign_assignments','qa_campaign_assignments','campaign_user_assignments']) as $cid) {
+        $cid = (int)$cid;
+        if ($cid > 0) $ids[$cid] = true;
+    }
+
+    $teamIds = [];
+    ensureTeamSchema();
+    $stmtT = $conn->prepare("SELECT DISTINCT team_id FROM team_members WHERE user_id = ?");
+    if ($stmtT) {
+        $stmtT->bind_param('i', $userId);
+        $stmtT->execute();
+        $rows = $stmtT->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+        $stmtT->close();
+        foreach ($rows as $r) {
+            $tid = (int)($r['team_id'] ?? 0);
+            if ($tid > 0) $teamIds[$tid] = true;
+        }
+    }
+    $stmtTm = $conn->prepare("SELECT id FROM teams WHERE manager_user_id = ?");
+    if ($stmtTm) {
+        $stmtTm->bind_param('i', $userId);
+        $stmtTm->execute();
+        $rows = $stmtTm->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+        $stmtTm->close();
+        foreach ($rows as $r) {
+            $tid = (int)($r['id'] ?? 0);
+            if ($tid > 0) $teamIds[$tid] = true;
+        }
+    }
+    if (!empty($teamIds)) {
+        $in = implode(',', array_fill(0, count($teamIds), '?'));
+        $types = str_repeat('i', count($teamIds));
+        $stmtC = $conn->prepare("SELECT DISTINCT campaign_id FROM team_campaigns WHERE team_id IN ($in)");
+        if ($stmtC) {
+            $tids = array_keys($teamIds);
+            $stmtC->bind_param($types, ...$tids);
+            $stmtC->execute();
+            $rows = $stmtC->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+            $stmtC->close();
+            foreach ($rows as $r) {
+                $cid = (int)($r['campaign_id'] ?? 0);
+                if ($cid > 0) $ids[$cid] = true;
+            }
+        }
+    }
+
+    if ($clientId > 0) {
+        $stmtC = $conn->prepare("SELECT DISTINCT campaign_id FROM campaign_details WHERE client_id = ?");
+        if ($stmtC) {
+            $stmtC->bind_param('i', $clientId);
+            $stmtC->execute();
+            $rows = $stmtC->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+            $stmtC->close();
+            foreach ($rows as $r) {
+                $cid = (int)($r['campaign_id'] ?? 0);
+                if ($cid > 0) $ids[$cid] = true;
+            }
+        }
+    }
+    if ($vendorId > 0) {
+        $stmtV = $conn->prepare("SELECT DISTINCT campaign_id FROM vendor_campaign_map WHERE vendor_id = ?");
+        if ($stmtV) {
+            $stmtV->bind_param('i', $vendorId);
+            $stmtV->execute();
+            $rows = $stmtV->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+            $stmtV->close();
+            foreach ($rows as $r) {
+                $cid = (int)($r['campaign_id'] ?? 0);
+                if ($cid > 0) $ids[$cid] = true;
+            }
+        }
+    }
+
+    $cache[$userId] = $ids;
+    return $ids;
+}
+
+function buildCampaignAccessSqlFilterForNotifications(int $userId, string $campaignColumn = 'campaign_id'): array {
+    $map = getUserCampaignAccessMapForNotifications($userId);
+    if ($map === null) return ['sql' => '1=1', 'types' => '', 'params' => []];
+    $ids = array_keys($map);
+    if (empty($ids)) {
+        return ['sql' => "({$campaignColumn} IS NULL AND type NOT LIKE 'campaign.%')", 'types' => '', 'params' => []];
+    }
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    return ['sql' => "(({$campaignColumn} IS NULL AND type NOT LIKE 'campaign.%') OR {$campaignColumn} IN ($in))", 'types' => str_repeat('i', count($ids)), 'params' => array_map('intval', $ids)];
+}
+
 function getUnreadNotificationCount(int $userId): int {
     $conn = getDbConnection();
-    $stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM notifications WHERE user_id = ? AND is_read = 0");
+    $filter = buildCampaignAccessSqlFilterForNotifications($userId, 'campaign_id');
+    $sql = "SELECT COUNT(*) AS cnt FROM notifications WHERE user_id = ? AND is_read = 0 AND " . $filter['sql'];
+    $stmt = $conn->prepare($sql);
     if (!$stmt) return 0;
-    $stmt->bind_param('i', $userId);
+    $types = 'i' . (string)($filter['types'] ?? '');
+    $params = array_merge([(int)$userId], (array)($filter['params'] ?? []));
+    $stmt->bind_param($types, ...$params);
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc() ?: ['cnt' => 0];
     $stmt->close();
@@ -5128,9 +5698,13 @@ function getUnreadToastNotifications(int $userId, int $limit = 3): array {
     ensureDatabaseSchema();
     $conn = getDbConnection();
     $limit = max(1, min(5, $limit));
-    $stmt = $conn->prepare("SELECT * FROM notifications WHERE user_id = ? AND is_read = 0 AND show_toast = 1 ORDER BY created_at DESC LIMIT " . (int)$limit);
+    $filter = buildCampaignAccessSqlFilterForNotifications($userId, 'campaign_id');
+    $sql = "SELECT * FROM notifications WHERE user_id = ? AND is_read = 0 AND show_toast = 1 AND " . $filter['sql'] . " ORDER BY created_at DESC LIMIT " . (int)$limit;
+    $stmt = $conn->prepare($sql);
     if (!$stmt) return [];
-    $stmt->bind_param('i', $userId);
+    $types = 'i' . (string)($filter['types'] ?? '');
+    $params = array_merge([(int)$userId], (array)($filter['params'] ?? []));
+    $stmt->bind_param($types, ...$params);
     $stmt->execute();
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
     $stmt->close();
@@ -5140,9 +5714,13 @@ function getUnreadToastNotifications(int $userId, int $limit = 3): array {
 function getUserNotifications(int $userId, int $limit = 12): array {
     $conn = getDbConnection();
     $limit = max(1, min(50, $limit));
-    $stmt = $conn->prepare("SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT " . (int)$limit);
+    $filter = buildCampaignAccessSqlFilterForNotifications($userId, 'campaign_id');
+    $sql = "SELECT * FROM notifications WHERE user_id = ? AND " . $filter['sql'] . " ORDER BY created_at DESC LIMIT " . (int)$limit;
+    $stmt = $conn->prepare($sql);
     if (!$stmt) return [];
-    $stmt->bind_param('i', $userId);
+    $types = 'i' . (string)($filter['types'] ?? '');
+    $params = array_merge([(int)$userId], (array)($filter['params'] ?? []));
+    $stmt->bind_param($types, ...$params);
     $stmt->execute();
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
     $stmt->close();
@@ -5169,7 +5747,7 @@ function markAllNotificationsRead(int $userId): bool {
     return $ok;
 }
 
-function notifyUsers(array $userIds, string $type, string $title, string $message, string $link = ''): void {
+function notifyUsers(array $userIds, string $type, string $title, string $message, string $link = '', array $opts = []): void {
     $ids = [];
     foreach ($userIds as $id) {
         $id = (int)$id;
@@ -5177,8 +5755,140 @@ function notifyUsers(array $userIds, string $type, string $title, string $messag
     }
     if (empty($ids)) return;
     foreach (array_keys($ids) as $uid) {
-        createNotificationSmart($uid, $type, $title, $message, $link);
+        createNotificationSmart($uid, $type, $title, $message, $link, $opts);
     }
+}
+
+function getCampaignNotificationRecipientIds(int $campaignId, array $opts = []): array {
+    $campaignId = (int)$campaignId;
+    if ($campaignId <= 0) return [];
+    $conn = getDbConnection();
+
+    $includeAdmins = array_key_exists('include_admins', $opts) ? (bool)$opts['include_admins'] : true;
+    $includeClients = !empty($opts['include_clients']);
+    $includeVendors = !empty($opts['include_vendors']);
+
+    $ids = [];
+    if ($includeAdmins) {
+        $rs = $conn->query("SELECT id FROM users WHERE role = 'admin' AND is_active = 1");
+        $rows = $rs ? ($rs->fetch_all(MYSQLI_ASSOC) ?: []) : [];
+        foreach ($rows as $r) {
+            $uid = (int)($r['id'] ?? 0);
+            if ($uid > 0) $ids[$uid] = true;
+        }
+    }
+
+    $stmtO = $conn->prepare("SELECT owner_id FROM campaigns WHERE id = ? LIMIT 1");
+    if ($stmtO) {
+        $stmtO->bind_param('i', $campaignId);
+        $stmtO->execute();
+        $ownerId = (int)(($stmtO->get_result()->fetch_assoc() ?: [])['owner_id'] ?? 0);
+        $stmtO->close();
+        if ($ownerId > 0) $ids[$ownerId] = true;
+    }
+
+    foreach (getCampaignAssignedUserIds($campaignId, ['operations_campaign_assignments','qa_campaign_assignments','campaign_user_assignments']) as $uid) {
+        $uid = (int)$uid;
+        if ($uid > 0) $ids[$uid] = true;
+    }
+
+    ensureTeamSchema();
+    $teamIds = [];
+    $rsT = $conn->query("SELECT DISTINCT team_id FROM team_campaigns WHERE campaign_id = " . (int)$campaignId);
+    $tRows = $rsT ? ($rsT->fetch_all(MYSQLI_ASSOC) ?: []) : [];
+    foreach ($tRows as $r) {
+        $tid = (int)($r['team_id'] ?? 0);
+        if ($tid > 0) $teamIds[$tid] = true;
+    }
+    foreach (array_keys($teamIds) as $tid) {
+        $stmtM = $conn->prepare("SELECT user_id FROM team_members WHERE team_id = ?");
+        if ($stmtM) {
+            $stmtM->bind_param('i', $tid);
+            $stmtM->execute();
+            $rows = $stmtM->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+            $stmtM->close();
+            foreach ($rows as $r) {
+                $uid = (int)($r['user_id'] ?? 0);
+                if ($uid > 0) $ids[$uid] = true;
+            }
+        }
+        $stmtMgr = $conn->prepare("SELECT manager_user_id FROM teams WHERE id = ? LIMIT 1");
+        if ($stmtMgr) {
+            $stmtMgr->bind_param('i', $tid);
+            $stmtMgr->execute();
+            $mgrId = (int)(($stmtMgr->get_result()->fetch_assoc() ?: [])['manager_user_id'] ?? 0);
+            $stmtMgr->close();
+            if ($mgrId > 0) $ids[$mgrId] = true;
+        }
+    }
+
+    if ($includeClients) {
+        $stmtC = $conn->prepare("SELECT client_id FROM campaign_details WHERE campaign_id = ? LIMIT 1");
+        if ($stmtC) {
+            $stmtC->bind_param('i', $campaignId);
+            $stmtC->execute();
+            $clientId = (int)(($stmtC->get_result()->fetch_assoc() ?: [])['client_id'] ?? 0);
+            $stmtC->close();
+            if ($clientId > 0) {
+                $stmtCU = $conn->prepare("SELECT id FROM users WHERE client_id = ? AND is_active = 1 AND role IN ('client_admin','client_sdr')");
+                if ($stmtCU) {
+                    $stmtCU->bind_param('i', $clientId);
+                    $stmtCU->execute();
+                    $rows = $stmtCU->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+                    $stmtCU->close();
+                    foreach ($rows as $r) {
+                        $uid = (int)($r['id'] ?? 0);
+                        if ($uid > 0) $ids[$uid] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    if ($includeVendors) {
+        $rsV = $conn->query("SELECT DISTINCT vendor_id FROM vendor_campaign_map WHERE campaign_id = " . (int)$campaignId);
+        $vRows = $rsV ? ($rsV->fetch_all(MYSQLI_ASSOC) ?: []) : [];
+        $vendorIds = [];
+        foreach ($vRows as $r) {
+            $vid = (int)($r['vendor_id'] ?? 0);
+            if ($vid > 0) $vendorIds[$vid] = true;
+        }
+        foreach (array_keys($vendorIds) as $vid) {
+            $stmtVU = $conn->prepare("SELECT user_id FROM vendor_user_map WHERE vendor_id = ?");
+            if ($stmtVU) {
+                $stmtVU->bind_param('i', $vid);
+                $stmtVU->execute();
+                $rows = $stmtVU->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+                $stmtVU->close();
+                foreach ($rows as $r) {
+                    $uid = (int)($r['user_id'] ?? 0);
+                    if ($uid > 0) $ids[$uid] = true;
+                }
+            }
+        }
+    }
+
+    $exclude = (int)($opts['exclude_user_id'] ?? 0);
+    if ($exclude > 0) unset($ids[$exclude]);
+
+    return array_keys($ids);
+}
+
+function notifyCampaignUsers(int $campaignId, string $type, string $title, string $message, string $link, array $opts = []): void {
+    $campaignId = (int)$campaignId;
+    if ($campaignId <= 0) return;
+    $actorId = (int)($opts['triggered_by_user_id'] ?? 0);
+    $recipients = getCampaignNotificationRecipientIds($campaignId, [
+        'include_admins' => array_key_exists('include_admins', $opts) ? (bool)$opts['include_admins'] : true,
+        'include_clients' => !empty($opts['include_clients']),
+        'include_vendors' => array_key_exists('include_vendors', $opts) ? (bool)$opts['include_vendors'] : true,
+        'exclude_user_id' => $actorId > 0 ? $actorId : 0,
+    ]);
+    if (empty($recipients)) return;
+
+    $opts['campaign_id'] = $campaignId;
+    $opts['visibility_scope'] = $opts['visibility_scope'] ?? 'campaign';
+    notifyUsers($recipients, $type, $title, $message, $link, $opts);
 }
 
 function getCampaignAssignedUserIds(int $campaignId, array $tables = ['operations_campaign_assignments','qa_campaign_assignments','campaign_user_assignments']): array {
@@ -5323,6 +6033,8 @@ function notifyCampaignEndWarningsForUser(int $userId): void {
             'show_toast' => true,
             'dedup_key' => 'campaign_end:' . $cid . ':' . $bucket,
             'dedup_window_min' => 720,
+            'campaign_id' => $cid,
+            'visibility_scope' => 'campaign',
         ]);
     }
 }
@@ -5360,15 +6072,14 @@ function notifyCampaignCreated(int $campaignId, int $actorId = 0): void {
     if ($status !== '') $msg .= ' · Status: ' . $status;
     $link = '../campaigns/view?id=' . $campaignId;
 
-    foreach (getInternalActiveUserIds() as $to) {
-        if ($to <= 0 || ($actorId > 0 && $to === (int)$actorId)) continue;
-        createNotificationSmart($to, 'campaign.created', $title, $msg, $link, [
-            'importance' => 'high',
-            'show_toast' => true,
-            'dedup_key' => 'camp_created:' . $campaignId,
-            'dedup_window_min' => 120,
-        ]);
-    }
+    notifyCampaignUsers($campaignId, 'campaign.created', $title, $msg, $link, [
+        'importance' => 'high',
+        'show_toast' => true,
+        'dedup_key' => 'camp_created:' . $campaignId,
+        'dedup_window_min' => 120,
+        'triggered_by_user_id' => (int)$actorId,
+        'visibility_scope' => 'campaign',
+    ]);
 }
 
 function notifyCampaignUpdated(int $campaignId, int $actorId = 0, array $meta = []): void {
@@ -5392,15 +6103,14 @@ function notifyCampaignUpdated(int $campaignId, int $actorId = 0, array $meta = 
     if (!empty($meta['by'])) $msg .= ' · By: ' . (string)$meta['by'];
     $link = '../campaigns/view?id=' . $campaignId;
 
-    foreach (getInternalActiveUserIds() as $to) {
-        if ($to <= 0 || ($actorId > 0 && $to === (int)$actorId)) continue;
-        createNotificationSmart($to, 'campaign.updated', $title, $msg, $link, [
-            'importance' => 'high',
-            'show_toast' => true,
-            'dedup_key' => 'camp_updated:' . $campaignId,
-            'dedup_window_min' => 10,
-        ]);
-    }
+    notifyCampaignUsers($campaignId, 'campaign.updated', $title, $msg, $link, [
+        'importance' => 'high',
+        'show_toast' => true,
+        'dedup_key' => 'camp_updated:' . $campaignId,
+        'dedup_window_min' => 10,
+        'triggered_by_user_id' => (int)$actorId,
+        'visibility_scope' => 'campaign',
+    ]);
 }
 
 function notifyCampaignPacingRiskForUser(int $userId): void {
@@ -5477,6 +6187,8 @@ function notifyCampaignPacingRiskForUser(int $userId): void {
             'show_toast' => true,
             'dedup_key' => 'pacing:' . $cid . ':' . $today,
             'dedup_window_min' => 1440,
+            'campaign_id' => $cid,
+            'visibility_scope' => 'campaign',
         ]);
     }
 }
@@ -5490,7 +6202,7 @@ function notifyLeadUpdated(int $leadDbId, int $actorId = 0, array $changedFields
 
     $recipients = [];
     if ($campaignId > 0) {
-        foreach (getCampaignAssignedUserIds($campaignId, ['operations_campaign_assignments','qa_campaign_assignments','campaign_user_assignments']) as $uid) {
+        foreach (getCampaignNotificationRecipientIds($campaignId, ['include_admins' => true, 'include_vendors' => true]) as $uid) {
             if ((int)$uid > 0) $recipients[(int)$uid] = true;
         }
     }
@@ -5519,81 +6231,53 @@ function notifyLeadUpdated(int $leadDbId, int $actorId = 0, array $changedFields
             'show_toast' => false,
             'dedup_key' => 'lead_updated:' . $leadDbId . ':' . sha1(implode('|', $changedFields)),
             'dedup_window_min' => 2,
+            'campaign_id' => $campaignId > 0 ? $campaignId : null,
+            'triggered_by_user_id' => (int)$actorId,
+            'visibility_scope' => $campaignId > 0 ? 'campaign' : 'direct',
         ]);
     }
-}
 
-function notifySalesFollowupRemindersForUser(int $userId): void {
-    $userId = (int)$userId;
-    if ($userId <= 0) return;
-    $isAdminFn = function_exists('isAdmin') && isAdmin();
-    $isSalesDirFn = function_exists('isSalesDirector') && isSalesDirector();
-    $isSalesMgrFn = function_exists('isSalesManager') && isSalesManager();
-    $isSdrFn = function_exists('isSDR') && isSDR();
-    if (!($isAdminFn || $isSalesDirFn || $isSalesMgrFn || $isSdrFn)) return;
-
-    $conn = getDbConnection();
-    $where = [];
-    $params = [];
-    $types = '';
-
-    if ($isAdminFn || $isSalesDirFn) {
-        $where[] = "1=1";
-    } elseif ($isSalesMgrFn) {
-        $where[] = "(sl.owner_id = ? OR sl.owner_id IN (SELECT sdr_user_id FROM sales_manager_sdr_map WHERE manager_user_id = ?))";
-        $types .= 'ii';
-        $params[] = $userId;
-        $params[] = $userId;
-    } else {
-        $where[] = "sl.owner_id = ?";
-        $types .= 'i';
-        $params[] = $userId;
-    }
-
-    $where[] = "sl.next_follow_up_at IS NOT NULL AND sl.next_follow_up_at <> ''";
-    $where[] = "sl.status NOT IN ('Closed Won','Closed Lost')";
-
-    $sql = "
-        SELECT sl.id, sl.company_name, sl.next_follow_up_at
-        FROM sales_leads sl
-        WHERE " . implode(' AND ', $where) . "
-        ORDER BY sl.next_follow_up_at ASC
-        LIMIT 100
-    ";
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) return;
-    if ($types !== '') $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
-    $stmt->close();
-
-    $now = time();
-    foreach ($rows as $r) {
-        $sid = (int)($r['id'] ?? 0);
-        $nfa = (string)($r['next_follow_up_at'] ?? '');
-        if ($sid <= 0 || $nfa === '' || strtotime($nfa) === false) continue;
-        $ts = strtotime($nfa);
-        $minLeft = (int)floor(($ts - $now) / 60);
-
-        $bucket = null;
-        if ($minLeft <= 60 && $minLeft >= 0) $bucket = 'h1';
-        elseif ($minLeft <= 360 && $minLeft > 60) $bucket = 'h6';
-        elseif ($minLeft <= 1440 && $minLeft > 360) $bucket = 'd1';
-        elseif ($minLeft < 0 && $minLeft >= -120) $bucket = 'overdue';
-        if ($bucket === null) continue;
-
-        $company = trim((string)($r['company_name'] ?? ''));
-        $title = $bucket === 'overdue' ? 'Follow-up overdue' : 'Follow-up reminder';
-        $when = date('d M Y, H:i', $ts);
-        $msg = ($company !== '' ? $company : ('Prospect #' . $sid)) . ' · ' . $when;
-        $link = '../sales/lead-view.php?id=' . $sid;
-        $dedupKey = 'sfup:' . $sid . ':' . $bucket . ':' . sha1($nfa);
-        createNotificationSmart($userId, 'sales.followup_reminder', $title, $msg, $link, [
-            'importance' => 'high',
-            'show_toast' => true,
-            'dedup_key' => $dedupKey,
-            'dedup_window_min' => 180,
-        ]);
+    $cdChanged = in_array('client_delivery_status', array_map('strval', $changedFields), true);
+    $cds = function_exists('normalizeClientDeliveryStatus') ? normalizeClientDeliveryStatus((string)($lead['client_delivery_status'] ?? 'Pending')) : (string)($lead['client_delivery_status'] ?? 'Pending');
+    if ($cdChanged && strtolower($cds) === 'delivered') {
+        $clientId = (int)($lead['client_id'] ?? 0);
+        if ($clientId <= 0 && $campaignId > 0 && function_exists('getCampaignClientId')) {
+            $clientId = (int)(getCampaignClientId($campaignId) ?? 0);
+        }
+        if ($clientId > 0) {
+            $conn = getDbConnection();
+            $stmtC = $conn->prepare("SELECT id FROM users WHERE client_id = ? AND is_active = 1 ORDER BY id");
+            $clientUserIds = [];
+            if ($stmtC) {
+                $stmtC->bind_param('i', $clientId);
+                $stmtC->execute();
+                $rows = $stmtC->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+                $stmtC->close();
+                foreach ($rows as $r) {
+                    $uid = (int)($r['id'] ?? 0);
+                    if ($uid > 0) $clientUserIds[$uid] = true;
+                }
+            }
+            if (!empty($clientUserIds)) {
+                $leadLabel2 = (string)($lead['lead_id'] ?? ('#' . (string)$leadDbId));
+                $campName2 = (string)($lead['campaign_name'] ?? '');
+                $title2 = 'New Lead Delivered';
+                $msg2 = $leadLabel2 . ($campName2 !== '' ? (' · ' . $campName2) : '');
+                $base = function_exists('appBasePath') ? rtrim((string)appBasePath(), '/') : '';
+                $link2 = $base . '/modules/clients/client-lead-details?id=' . $leadDbId;
+                foreach (array_keys($clientUserIds) as $uid) {
+                    createNotificationSmart((int)$uid, 'client.lead.delivered', $title2, $msg2, $link2, [
+                        'importance' => 'high',
+                        'show_toast' => true,
+                        'dedup_key' => 'client_lead_delivered:' . $leadDbId,
+                        'dedup_window_min' => 1440,
+                        'campaign_id' => $campaignId > 0 ? $campaignId : null,
+                        'triggered_by_user_id' => (int)$actorId,
+                        'visibility_scope' => $campaignId > 0 ? 'campaign' : 'direct',
+                    ]);
+                }
+            }
+        }
     }
 }
 
@@ -5605,7 +6289,7 @@ function notifyLeadCreated(int $leadDbId, int $campaignId, int $actorId = 0): vo
     if (!$lead) return;
 
     $recipients = [];
-    foreach (getCampaignAssignedUserIds($campaignId, ['operations_campaign_assignments','qa_campaign_assignments','campaign_user_assignments']) as $uid) {
+    foreach (getCampaignNotificationRecipientIds($campaignId, ['include_admins' => true, 'include_vendors' => true]) as $uid) {
         if ((int)$uid > 0) $recipients[(int)$uid] = true;
     }
     $agentId = (int)($lead['agent_id'] ?? 0);
@@ -5619,7 +6303,53 @@ function notifyLeadCreated(int $leadDbId, int $campaignId, int $actorId = 0): vo
     $title = 'New lead uploaded';
     $msg = $leadLabel . ($campName !== '' ? (' · ' . $campName) : '');
     $link = '../leads/lead-details.php?id=' . $leadDbId;
-    notifyUsers(array_keys($recipients), 'lead.created', $title, $msg, $link);
+    notifyUsers(array_keys($recipients), 'lead.created', $title, $msg, $link, [
+        'campaign_id' => $campaignId,
+        'triggered_by_user_id' => (int)$actorId,
+        'visibility_scope' => 'campaign',
+        'importance' => 'normal',
+        'show_toast' => false,
+        'dedup_key' => 'lead_created:' . $leadDbId,
+        'dedup_window_min' => 2,
+    ]);
+
+    $cds = function_exists('normalizeClientDeliveryStatus') ? normalizeClientDeliveryStatus((string)($lead['client_delivery_status'] ?? 'Pending')) : (string)($lead['client_delivery_status'] ?? 'Pending');
+    if (strtolower($cds) === 'delivered') {
+        $clientId = (int)($lead['client_id'] ?? 0);
+        if ($clientId <= 0 && function_exists('getCampaignClientId')) {
+            $clientId = (int)(getCampaignClientId($campaignId) ?? 0);
+        }
+        if ($clientId > 0) {
+            $conn = getDbConnection();
+            $stmtC = $conn->prepare("SELECT id FROM users WHERE client_id = ? AND is_active = 1 ORDER BY id");
+            $clientUserIds = [];
+            if ($stmtC) {
+                $stmtC->bind_param('i', $clientId);
+                $stmtC->execute();
+                $rows = $stmtC->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+                $stmtC->close();
+                foreach ($rows as $r) {
+                    $uid = (int)($r['id'] ?? 0);
+                    if ($uid > 0) $clientUserIds[$uid] = true;
+                }
+            }
+            if (!empty($clientUserIds)) {
+                $base = function_exists('appBasePath') ? rtrim((string)appBasePath(), '/') : '';
+                $link2 = $base . '/modules/clients/client-lead-details?id=' . $leadDbId;
+                foreach (array_keys($clientUserIds) as $uid) {
+                    createNotificationSmart((int)$uid, 'client.lead.delivered', 'New Lead Delivered', $msg, $link2, [
+                        'importance' => 'high',
+                        'show_toast' => true,
+                        'dedup_key' => 'client_lead_delivered:' . $leadDbId,
+                        'dedup_window_min' => 1440,
+                        'campaign_id' => $campaignId,
+                        'triggered_by_user_id' => (int)$actorId,
+                        'visibility_scope' => 'campaign',
+                    ]);
+                }
+            }
+        }
+    }
 }
 
 function ensureCampaignDetailsSchema(): void {}
@@ -6009,42 +6739,19 @@ function setCampaignStatus(int $campaignId, string $status, int $updatedBy = 0):
             if ($c) $campName = $c['name'];
         }
 
-        // Notify admins and relevant users
         $notifTitle = "Campaign Paused: $campName";
         $notifBody = "The campaign has been paused by $userName.";
-        $linkUrl = "modules/campaigns/campaign-details?id=$campaignId";
-        
-        // Notify Admins
-        $stmtA = $conn->prepare("SELECT id FROM users WHERE role = 'admin' AND is_active = 1");
-        if ($stmtA) {
-            $stmtA->execute();
-            $resA = $stmtA->get_result();
-            while ($adm = $resA->fetch_assoc()) {
-                createNotificationSmart((int)$adm['id'], 'campaign.status_changed', $notifTitle, $notifBody, $linkUrl);
-            }
-            $stmtA->close();
-        }
+        $linkUrl = "../campaigns/view?id=" . (int)$campaignId;
 
-        // Notify Campaign Client
-        $stmtCl = $conn->prepare("SELECT client_id FROM campaign_details WHERE campaign_id = ? LIMIT 1");
-        if ($stmtCl) {
-            $stmtCl->bind_param('i', $campaignId);
-            $stmtCl->execute();
-            $clId = $stmtCl->get_result()->fetch_assoc()['client_id'] ?? 0;
-            $stmtCl->close();
-            if ($clId > 0) {
-                $stmtUCl = $conn->prepare("SELECT id FROM users WHERE client_id = ? AND is_active = 1 AND role IN ('client_admin', 'client_sdr')");
-                if ($stmtUCl) {
-                    $stmtUCl->bind_param('i', $clId);
-                    $stmtUCl->execute();
-                    $resUCl = $stmtUCl->get_result();
-                    while ($ucl = $resUCl->fetch_assoc()) {
-                        createNotificationSmart((int)$ucl['id'], 'campaign.status_changed', $notifTitle, $notifBody, $linkUrl);
-                    }
-                    $stmtUCl->close();
-                }
-            }
-        }
+        notifyCampaignUsers($campaignId, 'campaign.status_changed', $notifTitle, $notifBody, $linkUrl, [
+            'importance' => 'high',
+            'show_toast' => true,
+            'dedup_key' => 'camp_status_pause:' . (int)$campaignId,
+            'dedup_window_min' => 30,
+            'triggered_by_user_id' => (int)$updatedBy,
+            'visibility_scope' => 'campaign',
+            'include_clients' => true,
+        ]);
     }
 
     return $ok;
@@ -7737,9 +8444,12 @@ function ensureAppSettingsSchema(): void {
 }
 
 function getAppSetting(string $key, ?string $default = null): ?string {
-    static $cache = [];
     $key = trim($key);
     if ($key === '') return $default;
+    if (!isset($GLOBALS['__app_settings_cache']) || !is_array($GLOBALS['__app_settings_cache'])) {
+        $GLOBALS['__app_settings_cache'] = [];
+    }
+    $cache = &$GLOBALS['__app_settings_cache'];
     if (array_key_exists($key, $cache)) return $cache[$key];
     ensureAppSettingsSchema();
     $conn = getDbConnection();
@@ -7764,6 +8474,15 @@ function setAppSetting(string $key, ?string $value): bool {
     $stmt->bind_param('ss', $key, $value);
     $ok = $stmt->execute();
     $stmt->close();
+    if ($ok) {
+        if (!isset($GLOBALS['__app_settings_cache']) || !is_array($GLOBALS['__app_settings_cache'])) {
+            $GLOBALS['__app_settings_cache'] = [];
+        }
+        $GLOBALS['__app_settings_cache'][$key] = $value;
+        if (str_starts_with($key, 'access.')) {
+            unset($GLOBALS['__access_role_permissions_cache']);
+        }
+    }
     return $ok;
 }
 
@@ -7786,9 +8505,97 @@ function parseAllowedIpList(?string $raw): array {
     $out = [];
     foreach ($parts as $p) {
         if ($p === '') continue;
-        if (filter_var($p, FILTER_VALIDATE_IP)) $out[$p] = true;
+        if (filter_var($p, FILTER_VALIDATE_IP)) {
+            $out[$p] = true;
+            continue;
+        }
+        if (str_contains($p, '/')) {
+            $cidr = explode('/', $p, 2);
+            $baseIp = trim((string)($cidr[0] ?? ''));
+            $prefix = trim((string)($cidr[1] ?? ''));
+            if ($baseIp !== '' && $prefix !== '' && ctype_digit($prefix) && filter_var($baseIp, FILTER_VALIDATE_IP)) {
+                $prefixInt = (int)$prefix;
+                $isV6 = str_contains($baseIp, ':');
+                $max = $isV6 ? 128 : 32;
+                if ($prefixInt >= 0 && $prefixInt <= $max) {
+                    $out[$baseIp . '/' . $prefixInt] = true;
+                }
+            }
+            continue;
+        }
+        if (str_contains($p, '*')) {
+            $parts4 = array_map('trim', explode('.', $p));
+            if (count($parts4) === 4) {
+                $ok = true;
+                foreach ($parts4 as $seg) {
+                    if ($seg === '*') continue;
+                    if (!ctype_digit($seg)) { $ok = false; break; }
+                    $n = (int)$seg;
+                    if ($n < 0 || $n > 255) { $ok = false; break; }
+                }
+                if ($ok) $out[implode('.', $parts4)] = true;
+            }
+        }
     }
     return array_keys($out);
+}
+
+function ipMatchesCidr(string $ip, string $cidr): bool {
+    $cidr = trim($cidr);
+    if ($cidr === '' || !str_contains($cidr, '/')) return false;
+    [$net, $prefixRaw] = array_map('trim', explode('/', $cidr, 2));
+    if ($net === '' || $prefixRaw === '' || !ctype_digit($prefixRaw)) return false;
+    if (!filter_var($ip, FILTER_VALIDATE_IP) || !filter_var($net, FILTER_VALIDATE_IP)) return false;
+    $isV6 = str_contains($net, ':');
+    $maxBits = $isV6 ? 128 : 32;
+    $prefix = (int)$prefixRaw;
+    if ($prefix < 0 || $prefix > $maxBits) return false;
+    $ipBin = @inet_pton($ip);
+    $netBin = @inet_pton($net);
+    if ($ipBin === false || $netBin === false) return false;
+    if (strlen($ipBin) !== strlen($netBin)) return false;
+    $bytes = intdiv($prefix, 8);
+    $bits = $prefix % 8;
+    if ($bytes > 0) {
+        if (substr($ipBin, 0, $bytes) !== substr($netBin, 0, $bytes)) return false;
+    }
+    if ($bits === 0) return true;
+    $mask = (0xFF << (8 - $bits)) & 0xFF;
+    $ipByte = ord($ipBin[$bytes]);
+    $netByte = ord($netBin[$bytes]);
+    return (($ipByte & $mask) === ($netByte & $mask));
+}
+
+function ipMatchesWildcard(string $ip, string $pattern): bool {
+    $pattern = trim($pattern);
+    if ($pattern === '' || !str_contains($pattern, '*')) return false;
+    if (!filter_var($ip, FILTER_VALIDATE_IP) || str_contains($ip, ':')) return false;
+    $ipParts = explode('.', $ip);
+    $patParts = array_map('trim', explode('.', $pattern));
+    if (count($ipParts) !== 4 || count($patParts) !== 4) return false;
+    for ($i = 0; $i < 4; $i++) {
+        $seg = (string)$patParts[$i];
+        if ($seg === '*') continue;
+        if (!ctype_digit($seg)) return false;
+        if ((int)$seg !== (int)$ipParts[$i]) return false;
+    }
+    return true;
+}
+
+function isIpAllowedByPolicy(string $ip, array $allowedRules): bool {
+    $ip = trim($ip);
+    if ($ip === '' || !filter_var($ip, FILTER_VALIDATE_IP)) return false;
+    foreach ($allowedRules as $rule) {
+        $r = trim((string)$rule);
+        if ($r === '') continue;
+        if ($r === $ip) return true;
+        if (str_contains($r, '/')) {
+            if (ipMatchesCidr($ip, $r)) return true;
+        } elseif (str_contains($r, '*')) {
+            if (ipMatchesWildcard($ip, $r)) return true;
+        }
+    }
+    return false;
 }
 
 function getUserIpAccessPolicy(int $userId): array {
@@ -8191,13 +8998,16 @@ function getCampaignStatsByDate(int $campaignId, string $todayStart, string $tod
  */
 function getLeads(array $filters = [], int $perPage = 25, int $page = 1): array {
     $conn = getDbConnection();
+    $includeSubmission = !empty($filters['include_submission']);
     $joins = [
         "LEFT JOIN campaigns c ON l.campaign_id = c.id",
         "LEFT JOIN campaign_details d ON d.campaign_id = l.campaign_id",
         "LEFT JOIN clients cl ON cl.id = d.client_id",
         "LEFT JOIN users u ON l.agent_id = u.id",
         "LEFT JOIN users au ON l.assigned_to_user = au.id",
-        "LEFT JOIN (
+    ];
+    if ($includeSubmission) {
+        $joins[] = "LEFT JOIN (
             SELECT fs1.lead_id, fs1.campaign_id, fs1.data_json
             FROM form_submissions fs1
             JOIN (
@@ -8205,8 +9015,8 @@ function getLeads(array $filters = [], int $perPage = 25, int $page = 1): array 
                 FROM form_submissions
                 GROUP BY lead_id, campaign_id
             ) fs2 ON fs2.max_id = fs1.id
-        ) fs ON fs.lead_id = l.id AND fs.campaign_id = l.campaign_id",
-    ];
+        ) fs ON fs.lead_id = l.id AND fs.campaign_id = l.campaign_id";
+    }
     $where = ['1=1'];
     $params = [];
     $types = '';
@@ -8272,7 +9082,8 @@ function getLeads(array $filters = [], int $perPage = 25, int $page = 1): array 
     $total = (int)($cntStmt->get_result()->fetch_row()[0] ?? 0);
     $cntStmt->close();
 
-    $sql = "SELECT l.*, fs.data_json AS submission_data_json, c.name AS campaign_name, u.full_name AS agent_name,
+    $selectSubmission = $includeSubmission ? "fs.data_json AS submission_data_json" : "NULL AS submission_data_json";
+    $sql = "SELECT l.*, $selectSubmission, c.name AS campaign_name, u.full_name AS agent_name,
                    d.code AS campaign_code, d.client_id AS client_id,
                    cl.client_code AS client_code, cl.name AS client_name,
                    au.id AS assigned_to_id, au.full_name AS assigned_to_name, au.role AS assigned_to_role

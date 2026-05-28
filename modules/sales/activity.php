@@ -28,7 +28,7 @@ $user = getCurrentUser();
 $userId = (int)($user['id'] ?? 0);
 $isSdr = isSDR();
 $isManager = isSalesManager();
-$isDirector = isSalesDirector();
+$isDirector = isSalesDirector() || isAdmin();
 $conn = getDbConnection();
 
 $canEditLead = function(int $leadOwnerId) use ($conn, $userId, $isSdr, $isManager, $isDirector): bool {
@@ -161,4 +161,3 @@ try {
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
 }
-

@@ -11,7 +11,7 @@ if (session_status() === PHP_SESSION_ACTIVE) {
 }
 
 // Only ensure schema if not an AJAX request to speed up modal loading
-if (!isAjaxRequest()) {
+if (!isAjaxRequest() && empty($_GET['edit']) && (($_GET['format'] ?? '') !== 'html') && empty($_GET['embed']) && empty($_GET['post_to'])) {
     ensureDatabaseSchema();
 }
 
@@ -52,11 +52,24 @@ if (!$lead) {
 $leadId = (int)($lead['id'] ?? $leadId);
 
 $currentRole = (string)($currentUser['role'] ?? '');
-$isAgentRole = in_array($currentRole, ['agent', 'operations_agent', 'qa_agent', 'email_marketing_agent', 'form_filler', 'email_marketing_executive']);
+$isAgentRole = in_array($currentRole, ['agent', 'operations_agent', 'email_marketing_agent', 'form_filler', 'email_marketing_executive']);
 if ($isAgentRole && !isAdmin() && isset($lead['agent_id']) && (int)$lead['agent_id'] !== (int)$currentUser['id']) {
     http_response_code(403);
     echo 'Access denied';
     exit;
+}
+
+if (isQA() && !isAdmin()) {
+    $leadCampaignId = (int)($lead['campaign_id'] ?? 0);
+    $visible = getQaVisibleCampaignIdsForUser((int)($currentUser['id'] ?? 0), $currentRole);
+    if (function_exists('getTeamVisibleCampaignIdsForUser')) {
+        $visible = getTeamVisibleCampaignIdsForUser((int)($currentUser['id'] ?? 0), $visible);
+    }
+    if ($visible !== null && $leadCampaignId > 0 && !isset($visible[$leadCampaignId])) {
+        http_response_code(403);
+        echo 'Access denied';
+        exit;
+    }
 }
 
 if (hasRole(['form_filler','email_marketing_executive','email_marketing_agent','email_marketing_manager','email_marketing_director'])) {
@@ -66,6 +79,25 @@ if (hasRole(['form_filler','email_marketing_executive','email_marketing_agent','
         http_response_code(403);
         echo 'Access denied';
         exit;
+    }
+}
+
+$isVendor = isVendor();
+if ($isVendor && !isAdmin()) {
+    $v1 = (int)($currentUser['vendor_id'] ?? 0);
+    $v2 = (int)($lead['vendor_id'] ?? 0);
+    if ($v1 <= 0 || $v2 !== $v1) {
+        http_response_code(403);
+        echo 'Access denied';
+        exit;
+    }
+    if ($currentRole === 'vendor_user') {
+        $leadAgentId = (int)($lead['agent_id'] ?? 0);
+        if ($leadAgentId !== (int)($currentUser['id'] ?? 0)) {
+            http_response_code(403);
+            echo 'Access denied';
+            exit;
+        }
     }
 }
 
@@ -146,12 +178,17 @@ if ($qaStatus === 'Duplicate') $qaClass = 'bg-dark-subtle text-dark';
 $formDone = (string)($lead['form_done'] ?? 'No');
 $formClass = ($formDone === 'Yes') ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning';
 $createdAt = !empty($lead['created_at']) ? date('Y-m-d H:i', strtotime($lead['created_at'])) : '—';
-$formFilledAt = !empty($lead['form_filled_time']) ? date('Y-m-d H:i', strtotime($lead['form_filled_time'])) : '—';
-$qaUpdatedAt = !empty($lead['qa_updated_at']) ? date('Y-m-d H:i', strtotime($lead['qa_updated_at'])) : '—';
+$rawSubmittedAt = $lead['form_filled_time'] ?? $lead['form_filled_at'] ?? $lead['submitted_at'] ?? null;
+$formFilledAt = !empty($rawSubmittedAt) ? date('Y-m-d H:i', strtotime((string)$rawSubmittedAt)) : '—';
+$rawQaUpdatedAt = $lead['qa_updated_at'] ?? $lead['qa_reviewed_at'] ?? null;
+$qaUpdatedAt = !empty($rawQaUpdatedAt) ? date('Y-m-d H:i', strtotime((string)$rawQaUpdatedAt)) : '—';
 
 $campaignId = (int)($lead['campaign_id'] ?? 0);
 $leadDbId = (int)($lead['id'] ?? 0);
 $submission = ($campaignId > 0 && $leadDbId > 0) ? getLatestFormSubmissionForLead($leadDbId, $campaignId) : null;
+if ($formFilledAt === '—' && !empty($submission['submitted_at'])) {
+    $formFilledAt = date('Y-m-d H:i', strtotime((string)$submission['submitted_at']));
+}
 $formData = is_array($submission['data'] ?? null) ? $submission['data'] : [];
 
 // Pre-index normalized keys to speed up link extraction and form picking
@@ -196,6 +233,7 @@ $linkedin = $fastPick(['linkedin_link','linkedin_url','linkedin_profile','prospe
 $companyLinkedin = $fastPick(['company_linkedin','company_linkedin_url','company_linkedin_link','companylinkedin','companylinkedinurl','linkedin_company','company_li']);
 $companyWebsite = $fastPick(['company_website','website','domain','company_domain','company_website_url','company_url','company_website_link']);
 $phone = $fastPick(['contact_phone','phone','phone_number','mobile','mobile_number','contact_number','prospect_phone','phone_no','mobile_no']);
+$companySize = $fastPick(['company_size','companysize','employee_size','employee_range','employees','company_employee_size','company_size_range','employee_count']);
 $industry = $fastPick(['industry','company_industry','sector','business_type','company_sector']);
 $jobTitle = $fastPick(['job_title','jobtitle','title','designation','contact_job_title','role','position']);
 $email = $fastPick(['email','email_address','emailaddress','work_email','prospect_email','contact_email','primary_email']);
@@ -374,19 +412,19 @@ if ($edit) {
                                         ?>
                                         <div class="col-md-3 <?php echo ($hideFilled && $isFilled($first)) ? 'filled-field' : ''; ?>">
                                             <label class="form-label x-small text-muted mb-1">First Name</label>
-                                            <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($first); ?>" readonly>
+                                            <input class="form-control form-control-sm" name="first_name" value="<?php echo htmlspecialchars($first); ?>">
                                         </div>
                                         <div class="col-md-3 <?php echo ($hideFilled && $isFilled($last)) ? 'filled-field' : ''; ?>">
                                             <label class="form-label x-small text-muted mb-1">Last Name</label>
-                                            <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($last); ?>" readonly>
+                                            <input class="form-control form-control-sm" name="last_name" value="<?php echo htmlspecialchars($last); ?>">
                                         </div>
                                         <div class="col-md-3 <?php echo ($hideFilled && $isFilled($job)) ? 'filled-field' : ''; ?>">
                                             <label class="form-label x-small text-muted mb-1">Job Title</label>
-                                            <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($job); ?>" readonly>
+                                            <input class="form-control form-control-sm" name="job_title" value="<?php echo htmlspecialchars($job); ?>">
                                         </div>
                                         <div class="col-md-3 <?php echo ($hideFilled && $isFilled($email)) ? 'filled-field' : ''; ?>">
                                             <label class="form-label x-small text-muted mb-1">Email</label>
-                                            <input class="form-control form-control-sm bg-white" type="email" value="<?php echo htmlspecialchars($email); ?>" readonly>
+                                            <input class="form-control form-control-sm" type="email" name="email" value="<?php echo htmlspecialchars($email); ?>">
                                         </div>
                                         <div class="col-md-4 <?php echo ($hideFilled && $isFilled($li)) ? 'filled-field' : ''; ?>">
                                             <div class="d-flex justify-content-between align-items-center">
@@ -397,15 +435,15 @@ if ($edit) {
                                 </a>
                             <?php endif; ?>
                         </div>
-                        <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($li); ?>" readonly>
+                        <input class="form-control form-control-sm" name="linkedin_link" value="<?php echo htmlspecialchars($li); ?>">
                     </div>
                     <div class="col-md-4 <?php echo ($hideFilled && $isFilled($phone)) ? 'filled-field' : ''; ?>">
                         <label class="form-label x-small text-muted mb-1">Contact Phone</label>
-                        <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($phone); ?>" readonly>
+                        <input class="form-control form-control-sm" name="contact_phone" value="<?php echo htmlspecialchars($phone); ?>">
                     </div>
                     <div class="col-md-4 <?php echo ($hideFilled && $isFilled($company)) ? 'filled-field' : ''; ?>">
                         <label class="form-label x-small text-muted mb-1">Company Name</label>
-                        <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($company); ?>" readonly>
+                        <input class="form-control form-control-sm" name="company_name" value="<?php echo htmlspecialchars($company); ?>">
                     </div>
                     <div class="col-md-4 <?php echo ($hideFilled && $isFilled($companyLi)) ? 'filled-field' : ''; ?>">
                         <div class="d-flex justify-content-between align-items-center">
@@ -416,11 +454,11 @@ if ($edit) {
                                 </a>
                             <?php endif; ?>
                         </div>
-                        <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($companyLi); ?>" readonly>
+                        <input class="form-control form-control-sm" name="company_linkedin" value="<?php echo htmlspecialchars($companyLi); ?>">
                     </div>
                                         <div class="col-md-4 <?php echo ($hideFilled && $isFilled($industry)) ? 'filled-field' : ''; ?>">
                                             <label class="form-label x-small text-muted mb-1">Industry</label>
-                                            <input class="form-control form-control-sm bg-white" value="<?php echo htmlspecialchars($industry); ?>" readonly>
+                                            <input class="form-control form-control-sm" name="industry" value="<?php echo htmlspecialchars($industry); ?>">
                                         </div>
                                         <div class="col-md-4 <?php echo ($hideFilled && $isFilled($comment)) ? 'filled-field' : ''; ?>">
                                             <label class="form-label x-small text-muted mb-1">Comment</label>
@@ -698,7 +736,7 @@ if ($format === 'html') {
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
 <?php endif; ?>
-<div class="<?php echo ($format === 'html' && !$standalone) ? 'p-2' : 'p-4'; ?>">
+<div class="<?php echo ($format === 'html' && !$standalone) ? 'p-3' : 'p-4'; ?>">
     <div class="d-flex justify-content-between align-items-start <?php echo $standalone ? 'mb-4' : 'mb-2'; ?>">
         <div>
             <div class="h4 mb-1"><?php echo htmlspecialchars($fullName ?: 'Lead'); ?></div>
@@ -720,12 +758,12 @@ if ($format === 'html') {
         </div>
     </div>
 
-    <div class="row <?php echo $standalone ? 'g-4' : 'g-2'; ?>">
+    <div class="row <?php echo $standalone ? 'g-4' : 'g-3'; ?>">
         <div class="col-lg-6">
             <div class="card border-0 bg-light h-100">
                 <div class="card-header bg-transparent border-0 fw-bold <?php echo $standalone ? 'pt-3' : 'pt-2 small'; ?>"><i class="bi bi-person-badge me-1"></i> Contact Information</div>
                 <div class="card-body <?php echo $standalone ? '' : 'pt-0 pb-2'; ?>">
-                    <div class="row <?php echo $standalone ? 'g-3' : 'g-2'; ?>">
+                    <div class="row <?php echo $standalone ? 'g-3' : 'g-3'; ?>">
                         <div class="col-12">
                             <div class="text-muted x-small mb-0">Job Title</div>
                             <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)($lead['job_title'] ?? '—')); ?></div>
@@ -736,7 +774,7 @@ if ($format === 'html') {
                         </div>
                         <div class="col-md-6">
                             <div class="text-muted x-small mb-0">Phone</div>
-                            <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)($lead['contact_phone'] ?? '—')); ?></div>
+                            <div class="fw-semibold text-dark small"><?php echo htmlspecialchars($phone !== '' ? $phone : '—'); ?></div>
                         </div>
                         <div class="col-12 <?php echo $standalone ? 'mt-3' : 'mt-1'; ?>">
                             <?php if ($linkedin !== ''): ?>
@@ -754,14 +792,14 @@ if ($format === 'html') {
             <div class="card border-0 bg-light h-100">
                 <div class="card-header bg-transparent border-0 fw-bold <?php echo $standalone ? 'pt-3' : 'pt-2 small'; ?>"><i class="bi bi-building me-1"></i> Company Details</div>
                 <div class="card-body <?php echo $standalone ? '' : 'pt-0 pb-2'; ?>">
-                    <div class="row <?php echo $standalone ? 'g-3' : 'g-2'; ?>">
+                    <div class="row <?php echo $standalone ? 'g-3' : 'g-3'; ?>">
                         <div class="col-12">
                             <div class="text-muted x-small mb-0">Company Name</div>
                             <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)($lead['company_name'] ?? '—')); ?></div>
                         </div>
                         <div class="col-md-6">
                             <div class="text-muted x-small mb-0">Size</div>
-                            <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)($lead['company_size'] ?? '—')); ?></div>
+                            <div class="fw-semibold text-dark small"><?php echo htmlspecialchars($companySize !== '' ? $companySize : '—'); ?></div>
                         </div>
                         <div class="col-md-6">
                             <div class="text-muted x-small mb-0">Country</div>
@@ -794,7 +832,7 @@ if ($format === 'html') {
             <div class="card border-0 bg-light h-100">
                 <div class="card-header bg-transparent border-0 fw-bold <?php echo $standalone ? 'pt-3' : 'pt-2 small'; ?>"><i class="bi bi-shield-check me-1"></i> QA & Status Tracking</div>
                 <div class="card-body <?php echo $standalone ? '' : 'pt-0 pb-2'; ?>">
-                    <div class="row <?php echo $standalone ? 'g-3' : 'g-2'; ?>">
+                    <div class="row <?php echo $standalone ? 'g-3' : 'g-3'; ?>">
                         <div class="col-md-6">
                             <div class="text-muted x-small mb-0">Submitted At</div>
                             <div class="fw-semibold text-dark small"><?php echo htmlspecialchars((string)$formFilledAt); ?></div>

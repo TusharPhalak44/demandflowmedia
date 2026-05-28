@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
-requireRole(['admin','vendor_admin','vendor_user']);
+requirePermissionOrRole('vendors.access', ['admin','vendor_admin','vendor_user']);
 ensureCsrfToken();
 
 $user = getCurrentUser();
@@ -23,6 +23,7 @@ if ($vendorId <= 0 && !isAdmin()) {
 }
 
 $canEdit = isAdmin() || isVendorAdmin();
+$canRevenue = userHasPermission('revenue.access');
 $msg = '';
 $err = '';
 
@@ -49,7 +50,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
     </div>
     <div class="d-flex gap-2">
       <a class="btn btn-light border btn-sm" href="../dashboard/vendor-dashboard.php"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
-      <a class="btn btn-light border btn-sm" href="vendor-revenue.php"><i class="bi bi-cash-coin me-1"></i>Revenue</a>
+      <?php if ($canRevenue): ?><a class="btn btn-light border btn-sm" href="vendor-revenue.php"><i class="bi bi-cash-coin me-1"></i>Revenue</a><?php endif; ?>
     </div>
   </div>
 

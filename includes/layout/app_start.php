@@ -12,6 +12,54 @@ $layoutAssetsBase = $layoutBase . '/assets';
 $layoutDefaultTheme = function_exists('getAppSetting') ? (string)(getAppSetting('ui.theme.default', 'light') ?? 'light') : 'light';
 $layoutDefaultTheme = $layoutDefaultTheme === 'dark' ? 'dark' : 'light';
 $layoutAllowUserOverride = function_exists('getAppSetting') ? ((string)(getAppSetting('ui.theme.allow_user_override', '1') ?? '1') === '1') : true;
+$layoutAccentLight = function_exists('getAppSetting') ? (string)(getAppSetting('ui.theme.accent_light', '#0EA5E9') ?? '#0EA5E9') : '#0EA5E9';
+$layoutAccentDark = function_exists('getAppSetting') ? (string)(getAppSetting('ui.theme.accent_dark', '#00FFFF') ?? '#00FFFF') : '#00FFFF';
+$layoutNormalizeHex = function(string $v, string $fallback): string {
+    $v = trim($v);
+    if ($v === '') return $fallback;
+    if ($v[0] !== '#') $v = '#' . $v;
+    if (!preg_match('/^#[0-9a-fA-F]{6}$/', $v)) return $fallback;
+    return strtoupper($v);
+};
+$layoutAccentLight = $layoutNormalizeHex($layoutAccentLight, '#0EA5E9');
+$layoutAccentDark = $layoutNormalizeHex($layoutAccentDark, '#00FFFF');
+$layoutHexToRgb = function(string $hex): array {
+    $hex = ltrim($hex, '#');
+    return [hexdec(substr($hex, 0, 2)), hexdec(substr($hex, 2, 2)), hexdec(substr($hex, 4, 2))];
+};
+$layoutDarkenHex = function(string $hex, float $factor) use ($layoutHexToRgb): string {
+    [$r, $g, $b] = $layoutHexToRgb($hex);
+    $r = max(0, min(255, (int)round($r * $factor)));
+    $g = max(0, min(255, (int)round($g * $factor)));
+    $b = max(0, min(255, (int)round($b * $factor)));
+    return sprintf('#%02X%02X%02X', $r, $g, $b);
+};
+$layoutAccentLight700 = $layoutDarkenHex($layoutAccentLight, 0.86);
+$layoutAccentDark700 = $layoutDarkenHex($layoutAccentDark, 0.86);
+[$lr, $lg, $lb] = $layoutHexToRgb($layoutAccentLight);
+[$dr, $dg, $db] = $layoutHexToRgb($layoutAccentDark);
+$layoutThemeVarsCss = ':root{' .
+    '--sidebar-neon:' . $layoutAccentLight . ';' .
+    '--sidebar-border:rgba(' . $lr . ',' . $lg . ',' . $lb . ',.40);' .
+    '--sidebar-glow:rgba(' . $lr . ',' . $lg . ',' . $lb . ',.25);' .
+    '--sidebar-hover:rgba(' . $lr . ',' . $lg . ',' . $lb . ',.10);' .
+    '--sidebar-active-bg:rgba(' . $lr . ',' . $lg . ',' . $lb . ',.16);' .
+    '--sidebar-active-ring:rgba(' . $lr . ',' . $lg . ',' . $lb . ',.34);' .
+    '--sidebar-brand-border:rgba(' . $lr . ',' . $lg . ',' . $lb . ',.22);' .
+    '--app-primary:' . $layoutAccentLight . ';' .
+    '--app-primary-700:' . $layoutAccentLight700 . ';' .
+    '}' .
+    '[data-bs-theme="dark"]{' .
+    '--sidebar-neon:' . $layoutAccentDark . ';' .
+    '--sidebar-border:rgba(' . $dr . ',' . $dg . ',' . $db . ',.34);' .
+    '--sidebar-glow:rgba(' . $dr . ',' . $dg . ',' . $db . ',.34);' .
+    '--sidebar-hover:rgba(' . $dr . ',' . $dg . ',' . $db . ',.08);' .
+    '--sidebar-active-bg:rgba(' . $dr . ',' . $dg . ',' . $db . ',.14);' .
+    '--sidebar-active-ring:rgba(' . $dr . ',' . $dg . ',' . $db . ',.34);' .
+    '--sidebar-brand-border:rgba(' . $dr . ',' . $dg . ',' . $db . ',.22);' .
+    '--app-primary:' . $layoutAccentDark . ';' .
+    '--app-primary-700:' . $layoutAccentDark700 . ';' .
+    '}';
 $layoutDashUrl = '#';
 if (isAdmin() || isDirector()) $layoutDashUrl = $layoutModulesBase . '/dashboard/admin-dashboard';
 elseif (isSales()) $layoutDashUrl = $layoutModulesBase . '/dashboard/sales-dashboard';
@@ -53,6 +101,7 @@ elseif (function_exists('isClient') && isClient()) $layoutDashUrl = $layoutModul
   <link rel="stylesheet" href="<?php echo htmlspecialchars($layoutAssetsBase); ?>/css/hr.css">
   <link rel="stylesheet" href="<?php echo htmlspecialchars($layoutAssetsBase); ?>/css/tables.css">
   <link rel="stylesheet" href="<?php echo htmlspecialchars($layoutAssetsBase); ?>/css/app.css">
+  <style id="app-theme-vars"><?php echo $layoutThemeVarsCss; ?></style>
   <style>
     #app-preloader{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.92);backdrop-filter:saturate(120%) blur(6px);opacity:1;visibility:visible;transition:opacity .28s ease,visibility .28s ease}
     [data-bs-theme="dark"] #app-preloader{background:rgba(10,14,22,.88)}
@@ -123,6 +172,14 @@ elseif (function_exists('isClient') && isClient()) $layoutDashUrl = $layoutModul
           try {
             const f = e.target;
             if (f && f.tagName === 'FORM') {
+              const method = (f.getAttribute('method') || 'get').toLowerCase();
+              if (method === 'post' && f.getAttribute('data-no-double-submit') !== '1') {
+                if (f.dataset.submitted === '1') { e.preventDefault(); return; }
+                f.dataset.submitted = '1';
+                f.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((btn) => {
+                  try { btn.disabled = true; } catch (err) {}
+                });
+              }
               const action = f.getAttribute('action') || '';
               if (action && !action.startsWith('#') && !action.startsWith('javascript:')) {
                 const u = new URL(action, window.location.href);

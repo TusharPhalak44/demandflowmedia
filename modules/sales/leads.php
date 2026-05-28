@@ -212,7 +212,7 @@ $statusOptions = array_values(array_filter($statuses, fn($s) => $s !== 'All'));
                   data-last-comment="<?php echo htmlspecialchars($lastComment); ?>">
                 <td>
                   <div class="fw-semibold">
-                    <a class="text-decoration-none" href="lead-view.php?id=<?php echo (int)$r['id']; ?>"><?php echo htmlspecialchars($r['company_name'] ?? ''); ?></a>
+                    <a class="text-decoration-none" href="lead-view?id=<?php echo (int)$r['id']; ?>"><?php echo htmlspecialchars($r['company_name'] ?? ''); ?></a>
                   </div>
                   <div class="text-muted small">
                     <?php echo htmlspecialchars($r['website_domain'] ?? ($r['website'] ?? '')); ?>
@@ -256,11 +256,14 @@ $statusOptions = array_values(array_filter($statuses, fn($s) => $s !== 'All'));
                 </td>
                 <td class="text-end text-nowrap">
                   <div class="btn-group btn-group-sm" role="group">
-                    <button type="button" class="btn btn-light border" data-quick="add" title="Quick log">
-                      <i class="bi bi-chat-left-text"></i>
-                    </button>
-                    <button type="button" class="btn btn-light border" data-quick="edit" title="Edit last note" <?php echo $lastActId > 0 ? '' : 'disabled'; ?>>
-                      <i class="bi bi-pencil"></i>
+                    <a class="btn btn-light border" href="lead-view?id=<?php echo (int)$r['id']; ?>" title="View prospect">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                    <a class="btn btn-light border" href="lead-view?id=<?php echo (int)$r['id']; ?>&amp;edit=1#prospectDetails" title="Edit prospect">
+                      <i class="bi bi-pencil-square"></i>
+                    </a>
+                    <button type="button" class="btn btn-light border" data-quick="add" title="Tag / Quick log">
+                      <i class="bi bi-tag"></i>
                     </button>
                   </div>
                 </td>
@@ -388,11 +391,11 @@ function openQuickModal(mode, tr) {
   quickLogError.textContent = '';
   quickLogForm.mode.value = mode;
   quickLogForm.lead_id.value = tr.dataset.leadId || '';
-  quickLogForm.activity_id.value = mode === 'edit' ? (tr.dataset.lastActivityId || '') : '';
+  quickLogForm.activity_id.value = '';
   quickLogForm.status.value = tr.dataset.status || 'New';
   quickLogForm.next_follow_up_at.value = parseIsoToLocalInput(tr.dataset.nextFollowUpAt || '');
-  quickLogForm.comment.value = mode === 'edit' ? (tr.dataset.lastComment || '') : '';
-  quickLogTitle.textContent = mode === 'edit' ? 'Edit Last Note' : 'Quick Log';
+  quickLogForm.comment.value = '';
+  quickLogTitle.textContent = 'Tag / Quick Log';
   bootstrap.Modal.getOrCreateInstance(quickLogModalEl).show();
 }
 
@@ -455,7 +458,6 @@ document.addEventListener('click', (e) => {
   const tr = btn.closest('tr[data-lead-id]');
   if (!tr) return;
   const mode = btn.getAttribute('data-quick');
-  if (mode === 'edit' && (!tr.dataset.lastActivityId || tr.dataset.lastActivityId === '0')) return;
   openQuickModal(mode, tr);
 });
 
@@ -465,16 +467,12 @@ quickLogSave.addEventListener('click', async () => {
   const leadId = quickLogForm.lead_id.value;
   const activityId = quickLogForm.activity_id.value;
   const status = quickLogForm.status.value;
-  const comment = quickLogForm.comment.value.trim();
+  let comment = quickLogForm.comment.value.trim();
   const nextFollowUpAt = quickLogForm.next_follow_up_at.value;
 
   if (!leadId) return;
   if (!status) return;
-  if (!comment) {
-    quickLogError.textContent = 'Comment is required.';
-    quickLogError.classList.remove('d-none');
-    return;
-  }
+  if (!comment) comment = `Status updated to ${status}.`;
 
   const payload = new URLSearchParams();
   payload.set('csrf_token', quickLogToken);
@@ -547,8 +545,6 @@ quickLogSave.addEventListener('click', async () => {
         updTd.textContent = data.data.updated_at ? formatDt(data.data.updated_at) : '';
       }
 
-      const editBtn = row.querySelector('button[data-quick="edit"]');
-      if (editBtn) editBtn.disabled = !(row.dataset.lastActivityId && row.dataset.lastActivityId !== '0');
     }
     bootstrap.Modal.getOrCreateInstance(quickLogModalEl).hide();
   } catch (err) {

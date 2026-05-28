@@ -23,6 +23,18 @@ if (!$lead) {
 
 $campaignId = (int)($lead['campaign_id'] ?? 0);
 
+if (isQA() && !isAdmin()) {
+    $visible = getQaVisibleCampaignIdsForUser((int)($user['id'] ?? 0), (string)($user['role'] ?? ''));
+    if (function_exists('getTeamVisibleCampaignIdsForUser')) {
+        $visible = getTeamVisibleCampaignIdsForUser((int)($user['id'] ?? 0), $visible);
+    }
+    if ($visible !== null && $campaignId > 0 && !isset($visible[$campaignId])) {
+        http_response_code(403);
+        echo 'Access denied';
+        exit;
+    }
+}
+
 if (($user['role'] ?? '') === 'agent' && isset($lead['agent_id']) && (int)$lead['agent_id'] !== (int)($user['id'] ?? 0)) {
     http_response_code(403);
     echo 'Access denied';
@@ -167,6 +179,13 @@ if ($companyWebsite === '') {
     $cd = trim((string)($lead['company_domain'] ?? ''));
     if ($cd !== '') $companyWebsite = $cd;
 }
+$ensureProtocol = function($url): string {
+    $url = trim((string)$url);
+    if ($url === '') return '';
+    if (!preg_match('~^(?:f|ht)tps?://~i', $url)) return 'https://' . $url;
+    return $url;
+};
+$companyWebsite = $ensureProtocol($companyWebsite);
 
 $pickFromSubmission = function(array $aliases) use ($submissionData): ?string {
     foreach ($aliases as $k) {
@@ -433,6 +452,7 @@ foreach ($schemaFields as $f) {
                         <div class="col-6">
                             <div class="text-muted small">Company LinkedIn</div>
                             <?php $cli = trim((string)($pickFromSubmission(['company_linkedin','company_linkedin_url','company_linkedin_link','companylinkedin','companylinkedinurl']) ?? ($lead['company_linkedin'] ?? ''))); ?>
+                            <?php $cli = $ensureProtocol($cli); ?>
                             <?php if ($cli !== ''): ?>
                                 <a class="btn btn-linkedin btn-sm rounded-pill px-3 shadow-sm" href="<?php echo htmlspecialchars($cli); ?>" target="_blank" rel="noopener noreferrer">
                                     <i class="bi bi-linkedin me-1"></i>Open Page
@@ -446,7 +466,7 @@ foreach ($schemaFields as $f) {
                             <?php if ($companyWebsite !== ''): ?>
                                 <div class="d-flex align-items-center bg-light p-2 rounded-3 border">
                                     <div class="website-icon-advanced">
-                                        <i class="bi bi-browser-safari fs-5"></i>
+                                        <i class="bi bi-globe"></i>
                                     </div>
                                     <div class="flex-grow-1 min-width-0">
                                         <div class="fw-bold small text-dark text-truncate">Official Website</div>

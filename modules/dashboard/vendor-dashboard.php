@@ -2,12 +2,15 @@
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
-requireRole(['admin', 'vendor_admin', 'vendor_user']);
+requirePermissionOrRole('dashboard.vendor', ['admin', 'vendor_admin', 'vendor_user']);
 
 $user = getCurrentUser();
 $vendorId = (int)($user['vendor_id'] ?? 0);
 $userId = (int)($user['id'] ?? 0);
 $userRole = (string)($user['role'] ?? '');
+$canBulkUpload = userHasPermission('leads.bulk_upload');
+$canManualEntry = userHasPermission('leads.entry');
+$canRevenue = userHasPermission('revenue.access');
 
 if ($vendorId <= 0 && !isAdmin()) {
     if (function_exists('isAjaxRequest') && isAjaxRequest()) {
@@ -110,11 +113,11 @@ include __DIR__ . '/../../includes/layout/app_start.php';
             <p class="text-muted small mb-0">Performance overview for your assigned campaigns.</p>
         </div>
         <div class="d-flex gap-2">
-            <a href="../leads/bulk-upload.php" class="btn btn-primary btn-sm"><i class="bi bi-upload me-1"></i>Bulk Upload</a>
-            <a href="../leads/agent.php" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-circle me-1"></i>Manual Entry</a>
+            <?php if ($canBulkUpload): ?><a href="../leads/bulk-upload.php" class="btn btn-primary btn-sm"><i class="bi bi-upload me-1"></i>Bulk Upload</a><?php endif; ?>
+            <?php if ($canManualEntry): ?><a href="../leads/agent.php" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-circle me-1"></i>Manual Entry</a><?php endif; ?>
             <a href="../vendors/vendor-campaigns.php" class="btn btn-light border btn-sm"><i class="bi bi-megaphone me-1"></i>Campaigns</a>
             <a href="../vendors/vendor-leads.php" class="btn btn-light border btn-sm"><i class="bi bi-list-ul me-1"></i>Leads</a>
-            <a href="../vendors/vendor-revenue.php" class="btn btn-light border btn-sm"><i class="bi bi-cash-coin me-1"></i>Revenue</a>
+            <?php if ($canRevenue): ?><a href="../vendors/vendor-revenue.php" class="btn btn-light border btn-sm"><i class="bi bi-cash-coin me-1"></i>Revenue</a><?php endif; ?>
         </div>
     </div>
 

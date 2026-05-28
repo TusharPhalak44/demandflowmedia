@@ -62,8 +62,8 @@ if ($q !== '') {
 
 $sql = "SELECT c.id, c.name, c.active, d.code, d.client_code, d.status, d.cpl, d.cpl_currency,
         r.revenue, r.currency AS revenue_currency, r.updated_at,
-        SUM(CASE WHEN l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS delivered_month,
-         SUM(CASE WHEN l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ? THEN COALESCE(d.cpl, 0) ELSE 0 END) AS generated_month
+        SUM(CASE WHEN l.client_delivery_status = 'Accepted' AND l.created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS delivered_month,
+         SUM(CASE WHEN l.client_delivery_status = 'Accepted' AND l.created_at BETWEEN ? AND ? THEN COALESCE(d.cpl, 0) ELSE 0 END) AS generated_month
         FROM campaigns c
         LEFT JOIN campaign_details d ON d.campaign_id = c.id
         LEFT JOIN campaign_revenue r ON r.campaign_id = c.id
@@ -85,7 +85,7 @@ foreach ($rows as $r) {
     $totalDelivered += (int)($r['delivered_month'] ?? 0);
     $gCur = strtoupper(trim((string)($r['cpl_currency'] ?? 'USD')));
     if ($gCur === '') $gCur = 'USD';
-    $gVal = (float)($r['generated_month'] ?? 0);
+    $gVal = (float)($r['generated_month'] ?? 0);  
     if (!isset($totalsGenerated[$gCur])) $totalsGenerated[$gCur] = 0.0;
     $totalsGenerated[$gCur] += $gVal;
     if (!isset($totalsAllocatedAuto[$gCur])) $totalsAllocatedAuto[$gCur] = 0.0;
@@ -124,7 +124,7 @@ foreach ($rows as $r) {
     <div class="col-md-3">
       <div class="card border-0 shadow-sm p-3 h-100">
         <div class="d-flex justify-content-between align-items-center">
-          <div class="text-muted small">Delivered Leads</div>
+          <div class="text-muted small">Accepted (Billable) Leads</div>
           <span class="badge bg-primary-subtle text-primary border"><i class="bi bi-check2-circle"></i></span>
         </div>
         <div class="h4 mb-0 mt-1"><?php echo number_format($totalDelivered); ?></div>
@@ -133,7 +133,7 @@ foreach ($rows as $r) {
     <div class="col-md-3">
       <div class="card border-0 shadow-sm p-3 h-100">
         <div class="d-flex justify-content-between align-items-center">
-          <div class="text-muted small">Allocated (Delivered × CPL)</div>
+          <div class="text-muted small">Allocated (Accepted × CPL)</div>
           <span class="badge bg-success-subtle text-success border"><i class="bi bi-calculator"></i></span>
         </div>
         <div class="h4 mb-0 mt-1">
@@ -193,7 +193,7 @@ foreach ($rows as $r) {
           <tr>
             <th>Campaign</th>
             <th>Client</th>
-            <th class="text-end">Delivered</th>
+            <th class="text-end">Accepted</th>
             <th class="text-end">Allocated (Auto)</th>
             <th class="text-end">Manual Allocated</th>
             <th class="text-end">Variance</th>

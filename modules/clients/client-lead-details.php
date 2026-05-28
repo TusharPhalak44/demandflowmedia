@@ -68,6 +68,7 @@ $companyLinkedin = '';
 $clientComment = trim((string)($lead['qa_client_comment'] ?? ''));
 $comment = trim((string)($lead['lead_comment'] ?? ''));
 $recording = trim((string)($lead['recording_path'] ?? ''));
+$canViewRecording = (isAdmin() || (function_exists('isQA') && isQA()) || (function_exists('isOperationsManager') && isOperationsManager()) || (function_exists('isOperationsDirector') && isOperationsDirector()) || (function_exists('isSalesManager') && isSalesManager()) || (function_exists('isSalesDirector') && isSalesDirector()));
 
 $campaignId = (int)($lead['campaign_id'] ?? 0);
 $form = $campaignId > 0 ? getFormForCampaign($campaignId) : null;
@@ -305,14 +306,15 @@ include __DIR__ . '/../../includes/layout/app_start.php';
             <div class="text-muted small">Comment</div>
             <div class="fw-semibold"><?php echo nl2br(htmlspecialchars($comment !== '' ? $comment : '—')); ?></div>
           </div>
-          <?php if ($recording !== ''): ?>
-            <div class="text-muted small mb-1">Recording</div>
+          <!-- <div class="text-muted small mb-1">Recording</div> -->
+          <?php if (!$canViewRecording): ?>
+            <!-- <div class="text-muted small">Hidden for client users.</div> -->
+          <?php elseif ($recording !== ''): ?>
             <audio controls class="w-100" src="<?php echo htmlspecialchars($recording); ?>"></audio>
             <div class="mt-2">
               <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars($recording); ?>" download><i class="bi bi-download me-1"></i>Download</a>
             </div>
           <?php else: ?>
-            <div class="text-muted small">Recording</div>
             <div class="fw-semibold">—</div>
           <?php endif; ?>
         </div>

@@ -2,7 +2,8 @@
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
-requireRole(['admin']);
+$allowedRoles = function_exists('getKnownRoles') ? getKnownRoles() : ['admin'];
+requireRole($allowedRoles);
 ensureCsrfToken();
 
 $monthStr = isset($_GET['month']) ? (string)$_GET['month'] : '';

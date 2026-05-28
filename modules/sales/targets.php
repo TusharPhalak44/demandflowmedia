@@ -122,7 +122,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
         <div class="row g-2 align-items-end">
           <div class="col-md-4">
             <label class="form-label">USD → INR (today)</label>
-            <input class="form-control form-control-sm" name="usd_inr_rate" value="<?php echo htmlspecialchars($rate !== null ? (string)$rate : ''); ?>" placeholder="e.g. 83.25">
+            <input class="form-control form-control-sm" name="usd_inr_rate" value="<?php echo htmlspecialchars($rate !== null ? (string)$rate : ''); ?>" placeholder="e.g. 83.25" readonly>
           </div>
           <div class="col-md-8 text-muted small">
             This rate is used for INR columns only. Targets are stored in USD.
@@ -146,13 +146,12 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                 <th>Job Title</th>
                 <th class="text-nowrap">New Accounts Target</th>
                 <th class="text-nowrap">Revenue Target (USD)</th>
-                <th class="text-nowrap">Revenue Target (INR)</th>
                 <th class="text-muted text-nowrap">Assigned</th>
               </tr>
             </thead>
             <tbody>
               <?php if (empty($assignable)): ?>
-                <tr><td colspan="6" class="text-center text-muted py-4">No Sales users found.</td></tr>
+                <tr><td colspan="5" class="text-center text-muted py-4">No Sales users found.</td></tr>
               <?php else: ?>
                 <?php foreach ($assignable as $u): ?>
                   <?php
@@ -160,7 +159,6 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                     $t = $targets[$uid] ?? null;
                     $tNew = (int)($t['target_new_accounts'] ?? 0);
                     $tUsd = (float)($t['target_revenue_usd'] ?? 0);
-                    $tInr = ($rate !== null) ? ($tUsd * (float)$rate) : null;
                     $assignedAt = (string)($t['assigned_at'] ?? '');
                     $assignedBy = trim((string)($t['assigned_by_name'] ?? ''));
                     $assignedByRole = trim((string)($t['assigned_by_role'] ?? ''));
@@ -173,9 +171,6 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                     </td>
                     <td style="max-width: 220px;">
                       <input type="number" step="0.01" min="0" class="form-control form-control-sm" name="target_revenue_usd[<?php echo $uid; ?>]" value="<?php echo htmlspecialchars(number_format($tUsd, 2, '.', '')); ?>">
-                    </td>
-                    <td class="text-muted small">
-                      <?php echo $tInr !== null ? htmlspecialchars(number_format($tInr, 2)) : '—'; ?>
                     </td>
                     <td class="text-muted small">
                       <?php if ($assignedAt !== ''): ?>

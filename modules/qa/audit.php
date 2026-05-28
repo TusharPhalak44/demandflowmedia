@@ -454,7 +454,7 @@ $canAssign = hasRole(['admin','qa_director','qa_manager']);
                     </select>
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label small text-muted text-uppercase fw-bold">Delivery Status</label>
+                    <label class="form-label small text-muted text-uppercase fw-bold">Delivery Status (Client)</label>
                     <select class="form-select form-select-sm border-2" name="client_delivery_status" id="client_delivery_status_select">
                       <?php foreach (getClientDeliveryStatuses() as $v): ?>
                         <option value="<?php echo htmlspecialchars($v); ?>"><?php echo htmlspecialchars($v); ?></option>

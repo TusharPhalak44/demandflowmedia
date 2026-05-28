@@ -26,29 +26,41 @@ if ($userId <= 0) {
     exit;
 }
 
-$last = (int)($_SESSION['notif_scheduler_ts'] ?? 0);
-if ($last <= 0 || (time() - $last) > 900) {
-    $_SESSION['notif_scheduler_ts'] = time();
+$lastCampaign = (int)($_SESSION['notif_scheduler_campaign_ts'] ?? 0);
+if ($lastCampaign <= 0 || (time() - $lastCampaign) > 900) {
+    $_SESSION['notif_scheduler_campaign_ts'] = time();
     if (function_exists('notifyCampaignEndWarningsForUser')) notifyCampaignEndWarningsForUser($userId);
     if (function_exists('notifyCampaignPacingRiskForUser')) notifyCampaignPacingRiskForUser($userId);
+}
+
+$lastSales = (int)($_SESSION['notif_scheduler_sales_ts'] ?? 0);
+if ($lastSales <= 0 || (time() - $lastSales) > 60) {
+    $_SESSION['notif_scheduler_sales_ts'] = time();
     if (function_exists('notifySalesFollowupRemindersForUser')) notifySalesFollowupRemindersForUser($userId);
 }
 
 $sinceId = (int)($_POST['since_id'] ?? 0);
 $conn = getDbConnection();
 $rows = [];
+$filter = buildCampaignAccessSqlFilterForNotifications($userId, 'campaign_id');
 if ($sinceId > 0) {
-    $stmt = $conn->prepare("SELECT id, title, body, link_url, created_at FROM notifications WHERE user_id = ? AND is_read = 0 AND show_toast = 1 AND id > ? ORDER BY id ASC LIMIT 5");
+    $sql = "SELECT id, title, body, link_url, created_at FROM notifications WHERE user_id = ? AND is_read = 0 AND show_toast = 1 AND id > ? AND " . $filter['sql'] . " ORDER BY id ASC LIMIT 5";
+    $stmt = $conn->prepare($sql);
     if ($stmt) {
-        $stmt->bind_param('ii', $userId, $sinceId);
+        $types = 'ii' . (string)($filter['types'] ?? '');
+        $params = array_merge([(int)$userId, (int)$sinceId], (array)($filter['params'] ?? []));
+        $stmt->bind_param($types, ...$params);
         $stmt->execute();
         $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
         $stmt->close();
     }
 } else {
-    $stmt = $conn->prepare("SELECT id, title, body, link_url, created_at FROM notifications WHERE user_id = ? AND is_read = 0 AND show_toast = 1 ORDER BY id DESC LIMIT 3");
+    $sql = "SELECT id, title, body, link_url, created_at FROM notifications WHERE user_id = ? AND is_read = 0 AND show_toast = 1 AND " . $filter['sql'] . " ORDER BY id DESC LIMIT 3";
+    $stmt = $conn->prepare($sql);
     if ($stmt) {
-        $stmt->bind_param('i', $userId);
+        $types = 'i' . (string)($filter['types'] ?? '');
+        $params = array_merge([(int)$userId], (array)($filter['params'] ?? []));
+        $stmt->bind_param($types, ...$params);
         $stmt->execute();
         $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
         $stmt->close();

@@ -59,21 +59,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $uid = (int)($u['id'] ?? 0);
     $canManageNotes = isAdmin() || hasRole(['director','manager_director','sales_director','sales_manager','operations_director']);
     $notifyAll = function(string $type, string $title, string $message, string $dedupKey) use ($campaignId, $uid): void {
-        $conn = getDbConnection();
-        $rs = $conn->query("SELECT id FROM users WHERE is_active = 1 AND (client_id IS NULL OR client_id = 0) AND (vendor_id IS NULL OR vendor_id = 0)");
-        if (!$rs) return;
-        $rows = $rs->fetch_all(MYSQLI_ASSOC) ?: [];
         $link = appBasePath() . '/modules/campaigns/view?id=' . (int)$campaignId;
-        foreach ($rows as $r) {
-            $to = (int)($r['id'] ?? 0);
-            if ($to <= 0 || $to === $uid) continue;
-            createNotificationSmart($to, $type, $title, $message, $link, [
-                'importance' => 'high',
-                'show_toast' => true,
-                'dedup_key' => $dedupKey,
-                'dedup_window_min' => 10,
-            ]);
-        }
+        notifyCampaignUsers((int)$campaignId, $type, $title, $message, $link, [
+            'importance' => 'high',
+            'show_toast' => true,
+            'dedup_key' => $dedupKey,
+            'dedup_window_min' => 10,
+            'triggered_by_user_id' => (int)$uid,
+            'visibility_scope' => 'campaign',
+        ]);
     };
     $action = (string)($_POST['action'] ?? '');
     if ($action === 'add_note') {

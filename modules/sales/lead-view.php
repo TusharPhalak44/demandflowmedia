@@ -7,6 +7,7 @@ ensureCsrfToken();
 $conn = getDbConnection();
 $user = getCurrentUser();
 $userId = (int)($user['id'] ?? 0);
+$isAdmin = isAdmin();
 
 $id = (int)($_GET['id'] ?? 0);
 if ($id <= 0) { header('Location: leads'); exit; }
@@ -16,7 +17,7 @@ if (!$lead) { header('Location: leads'); exit; }
 
 $isSdr = isSDR();
 $isManager = isSalesManager();
-$isDirector = isSalesDirector();
+$isDirector = isSalesDirector() || $isAdmin;
 
 $canView = false;
 if ($isDirector) {
@@ -263,7 +264,7 @@ $activities = getSalesLeadActivities($id, 200);
 
   <div class="row g-3">
     <div class="col-lg-7">
-      <div class="card">
+      <div class="card" id="prospectDetails">
         <div class="card-header fw-semibold">Prospect Details</div>
         <div class="card-body">
           <form method="post" class="row g-2">
@@ -560,6 +561,16 @@ editSave.addEventListener('click', async () => {
   } finally {
     editSave.disabled = false;
   }
+});
+</script>
+<?php endif; ?>
+<?php if (!empty($_GET['edit'])): ?>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('prospectDetails');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const first = document.querySelector('#prospectDetails [name="company_name"]');
+  if (first && !first.disabled) first.focus();
 });
 </script>
 <?php endif; ?>

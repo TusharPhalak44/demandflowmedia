@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($minAgeMin > 10080) $minAgeMin = 10080;
 
         $rows = [];
-        $stmt = $conn->prepare("SELECT id, user_id, type FROM notification_digest_queue WHERE processed_at IS NULL AND created_at <= (NOW() - INTERVAL ? MINUTE) ORDER BY user_id, created_at");
+        $stmt = $conn->prepare("SELECT id, user_id, type, campaign_id FROM notification_digest_queue WHERE processed_at IS NULL AND created_at <= (NOW() - INTERVAL ? MINUTE) ORDER BY user_id, created_at");
         if ($stmt) {
             $stmt->bind_param('i', $minAgeMin);
             $stmt->execute();
@@ -31,12 +31,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $byUser = [];
         $ids = [];
+        $accessCache = [];
         foreach ($rows as $r) {
             $qid = (int)($r['id'] ?? 0);
             $uid = (int)($r['user_id'] ?? 0);
             $type = (string)($r['type'] ?? '');
+            $cid = (int)($r['campaign_id'] ?? 0);
             if ($qid <= 0 || $uid <= 0 || $type === '') continue;
             $ids[] = $qid;
+            if ($cid > 0) {
+                if (!array_key_exists($uid, $accessCache)) {
+                    $accessCache[$uid] = getUserCampaignAccessMapForNotifications($uid);
+                }
+                $map = $accessCache[$uid];
+                if ($map !== null && empty($map[$cid])) {
+                    continue;
+                }
+            }
             if (!isset($byUser[$uid])) $byUser[$uid] = [];
             if (!isset($byUser[$uid][$type])) $byUser[$uid][$type] = 0;
             $byUser[$uid][$type] += 1;
@@ -119,4 +130,3 @@ include __DIR__ . '/../../includes/layout/app_start.php';
 </div>
 
 <?php include __DIR__ . '/../../includes/layout/app_end.php'; ?>
-

@@ -464,49 +464,49 @@ include __DIR__ . '/../../includes/layout/app_start.php';
           <div class="row g-2">
             <div class="col-md-4">
               <label class="form-label">First Name</label>
-              <input class="form-control form-control-sm" name="first_name" id="m_first_name">
+              <input class="form-control form-control-sm" name="first_name" id="m_first_name" readonly>
             </div>
             <div class="col-md-4">
               <label class="form-label">Last Name</label>
-              <input class="form-control form-control-sm" name="last_name" id="m_last_name">
+              <input class="form-control form-control-sm" name="last_name" id="m_last_name" readonly>
             </div>
             <div class="col-md-4">
               <label class="form-label">Job Title</label>
-              <input class="form-control form-control-sm" name="job_title" id="m_job_title">
+              <input class="form-control form-control-sm" name="job_title" id="m_job_title" readonly>
             </div>
 
             <div class="col-md-6">
               <label class="form-label d-flex justify-content-between"><span>Email</span><button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-copy="#m_email" title="Copy Email"><i class="bi bi-copy"></i></button></label>
-              <input class="form-control form-control-sm" name="email" id="m_email">
+              <input class="form-control form-control-sm" name="email" id="m_email" readonly>
             </div>
             <div class="col-md-6">
               <label class="form-label d-flex justify-content-between"><span>LinkedIn</span><button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-copy="#m_linkedin" title="Copy LinkedIn"><i class="bi bi-copy"></i></button></label>
-              <input class="form-control form-control-sm" name="linkedin_link" id="m_linkedin">
+              <input class="form-control form-control-sm" name="linkedin_link" id="m_linkedin" readonly>
             </div>
             <div class="col-md-6">
               <label class="form-label d-flex justify-content-between"><span>Phone</span><button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-copy="#m_phone" title="Copy Phone"><i class="bi bi-copy"></i></button></label>
-              <input class="form-control form-control-sm" name="contact_phone" id="m_phone">
+              <input class="form-control form-control-sm" name="contact_phone" id="m_phone" readonly>
             </div>
             <div class="col-md-6">
               <label class="form-label d-flex justify-content-between"><span>Company</span><button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-copy="#m_company" title="Copy Company"><i class="bi bi-copy"></i></button></label>
-              <input class="form-control form-control-sm" name="company_name" id="m_company">
+              <input class="form-control form-control-sm" name="company_name" id="m_company" readonly>
             </div>
 
             <div class="col-md-6">
               <label class="form-label">Company LinkedIn</label>
-              <input class="form-control form-control-sm" name="company_linkedin" id="m_company_linkedin">
+              <input class="form-control form-control-sm" name="company_linkedin" id="m_company_linkedin" readonly>
             </div>
             <div class="col-md-6">
               <label class="form-label">Industry</label>
-              <input class="form-control form-control-sm" name="industry" id="m_industry">
+              <input class="form-control form-control-sm" name="industry" id="m_industry" readonly>
             </div>
             <div class="col-md-6">
               <label class="form-label">Company Size</label>
-              <input class="form-control form-control-sm" name="company_size" id="m_company_size">
+              <input class="form-control form-control-sm" name="company_size" id="m_company_size" readonly>
             </div>
             <div class="col-md-6">
               <label class="form-label">Country</label>
-              <input class="form-control form-control-sm" name="country" id="m_country">
+              <input class="form-control form-control-sm" name="country" id="m_country" readonly>
             </div>
 
             <div class="col-md-4">
@@ -518,7 +518,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
               </select>
             </div>
             <div class="col-md-8">
-              <label class="form-label">Email Status Comment</label>
+              <label class="form-label">Email Asset Title</label>
               <input class="form-control form-control-sm" name="email_status_comment" id="m_email_status_comment" placeholder="e.g. bounced reason, sent note">
             </div>
 

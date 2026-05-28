@@ -35,8 +35,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $theme = (string)($_POST['ui_theme_default'] ?? 'light');
             $theme = $theme === 'dark' ? 'dark' : 'light';
             $allowOverride = !empty($_POST['ui_allow_user_override']) ? '1' : '0';
+            $normalizeHex = function($v, string $fallback): string {
+                $v = trim((string)$v);
+                if ($v === '') return $fallback;
+                if ($v[0] !== '#') $v = '#' . $v;
+                if (!preg_match('/^#[0-9a-fA-F]{6}$/', $v)) return $fallback;
+                return strtoupper($v);
+            };
+            $accentLight = $normalizeHex($_POST['ui_accent_light'] ?? '', '#0EA5E9');
+            $accentDark = $normalizeHex($_POST['ui_accent_dark'] ?? '', '#00FFFF');
             setAppSetting('ui.theme.default', $theme);
             setAppSetting('ui.theme.allow_user_override', $allowOverride);
+            setAppSetting('ui.theme.accent_light', $accentLight);
+            setAppSetting('ui.theme.accent_dark', $accentDark);
             $message = 'UI settings saved.';
             $messageType = 'success';
         } elseif ($action === 'save_attendance_policy') {
@@ -76,6 +87,102 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setAppSetting('notifications.sound.enabled', !empty($_POST['notif_sound']) ? '1' : '0');
             $message = 'Notification settings saved.';
             $messageType = 'success';
+        } elseif ($action === 'save_notification_defaults') {
+            $eventTypes = [
+                'campaign.created' => 'New campaign created',
+                'campaign.assigned' => 'Campaign allocated',
+                'campaign.end_warning' => 'Campaign end date warning',
+                'campaign.pacing_risk' => 'Low leads pacing alert',
+                'campaign.updated' => 'Campaign updated',
+                'lead.created' => 'New lead uploaded',
+                'lead.updated' => 'Lead updated',
+                'lead.status_updated' => 'Lead status updated',
+                'chat.message' => 'New chat message',
+                'chat.group_message' => 'New group message',
+                'sales.followup_reminder' => 'Sales follow-up reminder',
+                'invoice.created' => 'Invoice created',
+                'invoice.status_changed' => 'Invoice status updated',
+                'invoice.paid' => 'Invoice marked paid',
+            ];
+            $defaults = [];
+            foreach ($eventTypes as $type => $_label) {
+                $enabled = !empty($_POST['def_enabled'][$type]) ? 1 : 0;
+                $mode = (string)($_POST['def_mode'][$type] ?? 'instant');
+                if (!in_array($mode, ['instant','digest'], true)) $mode = 'instant';
+                $toast = !empty($_POST['def_toast'][$type]) ? 1 : 0;
+                $defaults[$type] = ['enabled' => $enabled, 'mode' => $mode, 'toast' => $toast];
+            }
+            $ok = setAppSetting('notifications.default_prefs', json_encode($defaults, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $message = $ok ? 'Default notification preferences saved.' : 'Failed to save defaults.';
+            $messageType = $ok ? 'success' : 'danger';
+        } elseif ($action === 'apply_notification_defaults') {
+            $overwrite = !empty($_POST['overwrite_existing']) ? 1 : 0;
+            $raw = (string)(getAppSetting('notifications.default_prefs', '') ?? '');
+            $defs = $raw !== '' ? json_decode($raw, true) : null;
+            if (!is_array($defs) || empty($defs)) {
+                $message = 'Save default preferences first.';
+                $messageType = 'danger';
+            } else {
+                $usersRs = $conn->query("SELECT id FROM users WHERE is_active = 1");
+                $userIds = [];
+                if ($usersRs) {
+                    foreach ($usersRs->fetch_all(MYSQLI_ASSOC) ?: [] as $r) {
+                        $uid = (int)($r['id'] ?? 0);
+                        if ($uid > 0) $userIds[] = $uid;
+                    }
+                }
+                $applied = 0;
+                if (!empty($userIds)) {
+                    if ($overwrite) {
+                        $stmt = $conn->prepare("
+                            INSERT INTO notification_preferences (user_id, type, delivery_mode, is_enabled, show_toast)
+                            VALUES (?,?,?,?,?)
+                            ON DUPLICATE KEY UPDATE
+                                delivery_mode=VALUES(delivery_mode),
+                                is_enabled=VALUES(is_enabled),
+                                show_toast=VALUES(show_toast),
+                                updated_at=NOW()
+                        ");
+                        if ($stmt) {
+                            foreach ($userIds as $uid) {
+                                foreach ($defs as $type => $cfg) {
+                                    $t = (string)$type;
+                                    if ($t === '') continue;
+                                    $en = (int)($cfg['enabled'] ?? 1);
+                                    $mode = (string)($cfg['mode'] ?? 'instant');
+                                    if (!in_array($mode, ['instant','digest'], true)) $mode = 'instant';
+                                    $toast = (int)($cfg['toast'] ?? 0);
+                                    $stmt->bind_param('issii', $uid, $t, $mode, $en, $toast);
+                                    if ($stmt->execute()) $applied++;
+                                }
+                            }
+                            $stmt->close();
+                        }
+                    } else {
+                        $stmt = $conn->prepare("
+                            INSERT IGNORE INTO notification_preferences (user_id, type, delivery_mode, is_enabled, show_toast)
+                            VALUES (?,?,?,?,?)
+                        ");
+                        if ($stmt) {
+                            foreach ($userIds as $uid) {
+                                foreach ($defs as $type => $cfg) {
+                                    $t = (string)$type;
+                                    if ($t === '') continue;
+                                    $en = (int)($cfg['enabled'] ?? 1);
+                                    $mode = (string)($cfg['mode'] ?? 'instant');
+                                    if (!in_array($mode, ['instant','digest'], true)) $mode = 'instant';
+                                    $toast = (int)($cfg['toast'] ?? 0);
+                                    $stmt->bind_param('issii', $uid, $t, $mode, $en, $toast);
+                                    if ($stmt->execute() && $stmt->affected_rows > 0) $applied++;
+                                }
+                            }
+                            $stmt->close();
+                        }
+                    }
+                }
+                $message = 'Defaults applied: ' . number_format($applied) . ($overwrite ? ' (overwritten)' : ' (only missing)');
+                $messageType = 'success';
+            }
         } elseif ($action === 'save_dashboard_banners') {
             setAppSetting('dashboard.banner.incentives.enabled', !empty($_POST['banner_incentives_enabled']) ? '1' : '0');
             setAppSetting('dashboard.banner.incentives.items', trim((string)($_POST['banner_incentives_items'] ?? '')));
@@ -169,6 +276,8 @@ if ($detectedXff !== '') {
 $uiThemeDefault = (string)(getAppSetting('ui.theme.default', 'light') ?? 'light');
 $uiThemeDefault = $uiThemeDefault === 'dark' ? 'dark' : 'light';
 $uiAllowOverride = (string)(getAppSetting('ui.theme.allow_user_override', '1') ?? '1') === '1';
+$uiAccentLight = (string)(getAppSetting('ui.theme.accent_light', '#0EA5E9') ?? '#0EA5E9');
+$uiAccentDark = (string)(getAppSetting('ui.theme.accent_dark', '#00FFFF') ?? '#00FFFF');
 $attendancePolicy = getAttendancePolicySettings();
 $invMode = (string)(getAppSetting('invoice.numbering.mode', 'sequence') ?? 'sequence');
 if (!in_array($invMode, ['sequence','legacy'], true)) $invMode = 'sequence';
@@ -178,13 +287,32 @@ $leadDeliveryStatuses = (string)(getAppSetting('leads.lifecycle.delivery_statuse
 $leadDefaults = (string)(getAppSetting('leads.lifecycle.defaults', '') ?? '');
 $notifInApp = (string)(getAppSetting('notifications.in_app.enabled', '1') ?? '1') === '1';
 $notifSound = (string)(getAppSetting('notifications.sound.enabled', '0') ?? '0') === '1';
+$notifDefaultPrefsRaw = (string)(getAppSetting('notifications.default_prefs', '') ?? '');
+$notifDefaultPrefs = $notifDefaultPrefsRaw !== '' ? json_decode($notifDefaultPrefsRaw, true) : null;
+if (!is_array($notifDefaultPrefs)) $notifDefaultPrefs = [];
+$notifEventTypes = [
+    'campaign.created' => 'New campaign created',
+    'campaign.assigned' => 'Campaign allocated',
+    'campaign.end_warning' => 'Campaign end date warning',
+    'campaign.pacing_risk' => 'Low leads pacing alert',
+    'campaign.updated' => 'Campaign updated',
+    'lead.created' => 'New lead uploaded',
+    'lead.updated' => 'Lead updated',
+    'lead.status_updated' => 'Lead status updated',
+    'chat.message' => 'New chat message',
+    'chat.group_message' => 'New group message',
+    'sales.followup_reminder' => 'Sales follow-up reminder',
+    'invoice.created' => 'Invoice created',
+    'invoice.status_changed' => 'Invoice status updated',
+    'invoice.paid' => 'Invoice marked paid',
+];
 $bannerIncentivesEnabled = (string)(getAppSetting('dashboard.banner.incentives.enabled', '1') ?? '1') === '1';
 $bannerIncentivesItems = (string)(getAppSetting('dashboard.banner.incentives.items', '') ?? '');
 $bannerBirthdaysEnabled = (string)(getAppSetting('dashboard.banner.birthdays.enabled', '1') ?? '1') === '1';
 $bannerAnniversariesEnabled = (string)(getAppSetting('dashboard.banner.anniversaries.enabled', '1') ?? '1') === '1';
 
 $users = [];
-$rs = $conn->query("SELECT id, full_name, role, is_active FROM users WHERE is_active = 1 AND role NOT LIKE 'client_%' AND role NOT LIKE 'vendor_%' ORDER BY full_name");
+$rs = $conn->query("SELECT id, full_name, role, is_active FROM users WHERE is_active = 1 ORDER BY full_name");
 if ($rs) $users = $rs->fetch_all(MYSQLI_ASSOC) ?: [];
 
 $userLabelById = [];
@@ -349,7 +477,8 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                                 </div>
                                 <div class="col-md-8">
                                     <label class="form-label small text-muted">Allowed IPs (one per line)</label>
-                                    <textarea class="form-control form-control-sm" name="allowed_ips" rows="3" placeholder="e.g. 203.0.113.10" <?php echo $selectedUserId > 0 ? '' : 'disabled'; ?>><?php echo htmlspecialchars($selectedAllowed); ?></textarea>
+                                    <textarea class="form-control form-control-sm" name="allowed_ips" rows="3" placeholder="e.g. 203.0.113.10&#10;or 203.0.113.0/24&#10;or 192.168.1.*" <?php echo $selectedUserId > 0 ? '' : 'disabled'; ?>><?php echo htmlspecialchars($selectedAllowed); ?></textarea>
+                                    <div class="text-muted small mt-1">Supports exact IP, CIDR (x.x.x.x/24), and wildcard (192.168.1.*).</div>
                                 </div>
                                 <div class="col-12 d-flex justify-content-end">
                                     <button class="btn btn-outline-primary btn-sm" type="submit" <?php echo $selectedUserId > 0 ? '' : 'disabled'; ?>><i class="bi bi-save2 me-1"></i>Save User Policy</button>
@@ -385,6 +514,16 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                                         <label class="form-check-label" for="ui_allow_user_override">Allow users to switch theme on their browser</label>
                                     </div>
                                 </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Accent Color (Light)</label>
+                                    <input class="form-control form-control-sm form-control-color" type="color" name="ui_accent_light" value="<?php echo htmlspecialchars($uiAccentLight); ?>" title="Pick accent color for light theme">
+                                    <div class="text-muted small mt-1">Updates neon borders, active rings, and primary buttons for Light theme.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Accent Color (Dark)</label>
+                                    <input class="form-control form-control-sm form-control-color" type="color" name="ui_accent_dark" value="<?php echo htmlspecialchars($uiAccentDark); ?>" title="Pick accent color for dark theme">
+                                    <div class="text-muted small mt-1">Updates neon borders, active rings, and primary buttons for Dark theme.</div>
+                                </div>
                                 <div class="col-12 d-flex justify-content-end">
                                     <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-save2 me-1"></i>Save</button>
                                 </div>
@@ -412,6 +551,77 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                                 </div>
                                 <div class="col-12 d-flex justify-content-end">
                                     <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-save2 me-1"></i>Save</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-light fw-semibold"><i class="bi bi-sliders me-1"></i>Default Notification Preferences</div>
+                        <div class="card-body">
+                            <div class="text-muted small mb-3">These defaults are used when a user has not saved their own preferences.</div>
+                            <form method="post">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                                <input type="hidden" name="action" value="save_notification_defaults">
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Event</th>
+                                                <th style="width:110px;" class="text-center">Enabled</th>
+                                                <th style="width:160px;">Delivery</th>
+                                                <th style="width:140px;" class="text-center">Popup (Toast)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($notifEventTypes as $type => $label): ?>
+                                                <?php
+                                                    $d = is_array($notifDefaultPrefs[$type] ?? null) ? $notifDefaultPrefs[$type] : null;
+                                                    $enabled = $d ? ((int)($d['enabled'] ?? 1) === 1) : true;
+                                                    $mode = $d ? (string)($d['mode'] ?? 'instant') : 'instant';
+                                                    if (!in_array($mode, ['instant','digest'], true)) $mode = 'instant';
+                                                    $toast = $d ? ((int)($d['toast'] ?? 0) === 1) : in_array($type, ['campaign.end_warning','campaign.pacing_risk','sales.followup_reminder','chat.message','chat.group_message','lead.created','lead.updated'], true);
+                                                ?>
+                                                <tr>
+                                                    <td class="fw-semibold"><?php echo htmlspecialchars($label); ?><div class="text-muted small"><?php echo htmlspecialchars($type); ?></div></td>
+                                                    <td class="text-center">
+                                                        <input class="form-check-input" type="checkbox" name="def_enabled[<?php echo htmlspecialchars($type); ?>]" value="1" <?php echo $enabled ? 'checked' : ''; ?>>
+                                                    </td>
+                                                    <td>
+                                                        <select class="form-select form-select-sm" name="def_mode[<?php echo htmlspecialchars($type); ?>]">
+                                                            <option value="instant" <?php echo $mode === 'instant' ? 'selected' : ''; ?>>Instant</option>
+                                                            <option value="digest" <?php echo $mode === 'digest' ? 'selected' : ''; ?>>Digest</option>
+                                                        </select>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <input class="form-check-input" type="checkbox" name="def_toast[<?php echo htmlspecialchars($type); ?>]" value="1" <?php echo $toast ? 'checked' : ''; ?>>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="d-flex justify-content-end gap-2 mt-3">
+                                    <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-save2 me-1"></i>Save Defaults</button>
+                                </div>
+                            </form>
+                            <form method="post" class="mt-3">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                                <input type="hidden" name="action" value="apply_notification_defaults">
+                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border rounded p-3 bg-light">
+                                    <div>
+                                        <div class="fw-semibold">Apply defaults to users</div>
+                                        <div class="text-muted small">Writes the defaults into user preferences (useful for existing users).</div>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="overwrite_existing" name="overwrite_existing" value="1">
+                                            <label class="form-check-label" for="overwrite_existing">Overwrite existing</label>
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-upload me-1"></i>Apply</button>
+                                    </div>
                                 </div>
                             </form>
                         </div>

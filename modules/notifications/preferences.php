@@ -26,6 +26,10 @@ $eventTypes = [
     'invoice.paid' => 'Invoice marked paid',
 ];
 
+$defaultPrefsRaw = (string)(getAppSetting('notifications.default_prefs', '') ?? '');
+$defaultPrefs = $defaultPrefsRaw !== '' ? json_decode($defaultPrefsRaw, true) : null;
+if (!is_array($defaultPrefs)) $defaultPrefs = [];
+
 $message = '';
 $messageType = 'success';
 
@@ -116,10 +120,11 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                         <?php foreach ($eventTypes as $type => $label): ?>
                             <?php
                                 $row = $prefs[$type] ?? null;
-                                $enabled = $row ? ((int)($row['is_enabled'] ?? 1) === 1) : true;
-                                $mode = $row ? (string)($row['delivery_mode'] ?? 'instant') : 'instant';
+                                $def = !$row && is_array($defaultPrefs[$type] ?? null) ? $defaultPrefs[$type] : null;
+                                $enabled = $row ? ((int)($row['is_enabled'] ?? 1) === 1) : ($def ? ((int)($def['enabled'] ?? 1) === 1) : true);
+                                $mode = $row ? (string)($row['delivery_mode'] ?? 'instant') : ($def ? (string)($def['mode'] ?? 'instant') : 'instant');
                                 if (!in_array($mode, ['instant','digest'], true)) $mode = 'instant';
-                                $toast = $row ? ((int)($row['show_toast'] ?? 0) === 1) : in_array($type, ['campaign.end_warning','campaign.pacing_risk','sales.followup_reminder','chat.message','chat.group_message','lead.created','lead.updated'], true);
+                                $toast = $row ? ((int)($row['show_toast'] ?? 0) === 1) : ($def ? ((int)($def['toast'] ?? 0) === 1) : in_array($type, ['campaign.end_warning','campaign.pacing_risk','sales.followup_reminder','chat.message','chat.group_message','lead.created','lead.updated'], true));
                             ?>
                             <tr>
                                 <td class="fw-semibold"><?php echo htmlspecialchars($label); ?><div class="text-muted small"><?php echo htmlspecialchars($type); ?></div></td>

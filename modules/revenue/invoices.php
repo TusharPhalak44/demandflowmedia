@@ -515,11 +515,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $stmt = $conn->prepare("
                     SELECT c.id, c.name, d.client_code, d.cpl, d.cpl_currency,
-                           COUNT(l.id) AS delivered
+                           COUNT(l.id) AS billable
                     FROM campaigns c
                     LEFT JOIN campaign_details d ON d.campaign_id = c.id
                     LEFT JOIN leads l ON l.campaign_id = c.id
-                        AND l.client_delivery_status = 'Delivered'
+                        AND l.client_delivery_status = 'Accepted'
                         AND l.created_at BETWEEN ? AND ?
                     WHERE c.id = ?
                     GROUP BY c.id, c.name, d.client_code, d.cpl, d.cpl_currency
@@ -536,12 +536,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $message = 'Campaign not found.';
                     $messageType = 'danger';
                 } else {
-                    $delivered = (int)($info['delivered'] ?? 0);
+                    $billable = (int)($info['billable'] ?? 0);
                     $cpl = (float)($info['cpl'] ?? 0);
                     $cur = trim((string)($info['cpl_currency'] ?? 'USD'));
                     if ($cur === '') $cur = 'USD';
-                    if ($delivered <= 0 || $cpl <= 0) {
-                        $message = 'No delivered leads / CPL for this campaign in this month.';
+                    if ($billable <= 0 || $cpl <= 0) {
+                        $message = 'No billable (Accepted) leads / CPL for this campaign in this month.';
                         $messageType = 'danger';
                     } else {
                         $clientCode = trim((string)($info['client_code'] ?? ''));
@@ -566,7 +566,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             : nextInvoiceNumber(date('Y-m-d'));
                         $issueDate = date('Y-m-d');
                         $dueDate = date('Y-m-d', strtotime($issueDate . ' +15 days'));
-                        $subtotal = $delivered * $cpl;
+                        $subtotal = $billable * $cpl;
                         $taxRate = 0.0;
                         $taxAmount = 0.0;
                         $total = $subtotal;
@@ -641,7 +641,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                         ");
                         if ($stmt) {
-                            $notes = 'Generated from delivered leads for ' . $monthStr;
+                            $notes = 'Generated from Accepted (billable) leads for ' . $monthStr;
                             $clientIdVal = (int)($clientId ?? 0);
                             $clientNameVal = (string)($clientName ?? '');
                             $status = 'Draft';
@@ -686,11 +686,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $newId = (int)$conn->insert_id;
                             $stmt->close();
                             if ($ok && $newId > 0) {
-                                $desc = 'Lead Delivery - ' . (string)($info['name'] ?? '') . ' (' . $monthStr . ')';
+                                $desc = 'Accepted (Billable) Leads - ' . (string)($info['name'] ?? '') . ' (' . $monthStr . ')';
                                 $amount = $subtotal;
                                 $ins = $conn->prepare("INSERT INTO revenue_invoice_items (invoice_id, description, qty, unit_price, amount, sort_order) VALUES (?,?,?,?,?,0)");
                                 if ($ins) {
-                                    $qty = (float)$delivered;
+                                    $qty = (float)$billable;
                                     $unitPrice = (float)$cpl;
                                     $ins->bind_param('isddd', $newId, $desc, $qty, $unitPrice, $amount);
                                     $ins->execute();
@@ -840,25 +840,28 @@ include __DIR__ . '/../../includes/layout/app_start.php';
         </div>
         <div id="createInvoiceBox" class="collapse show">
             <div class="card-body">
-                <form method="post" class="row g-2 align-items-end">
+                <form method="post" class="row g-3 align-items-end">
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                     <input type="hidden" name="action" value="create_invoice_from_campaign">
-                    <div class="col-md-7">
-                        <label class="form-label small text-muted">Campaign</label>
-                        <select class="form-select form-select-sm" name="campaign_id" required>
+                    <div class="col-lg-8">
+                        <label class="form-label small text-muted mb-1">Campaign</label>
+                        <select class="form-select" name="campaign_id" required>
                             <option value="">Select campaign</option>
                             <?php foreach ($campaigns as $c): ?>
                                 <option value="<?php echo (int)$c['id']; ?>" <?php echo ((int)$c['id'] === $prefCampaignId) ? 'selected' : ''; ?>><?php echo htmlspecialchars((string)($c['name'] ?? '') . ((string)($c['code'] ?? '') !== '' ? (' [' . (string)$c['code'] . ']') : '') . ((string)($c['client_code'] ?? '') !== '' ? (' · ' . (string)$c['client_code']) : '')); ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <div class="text-muted small mt-1">Creates a Draft invoice using Delivered leads × CPL for selected month.</div>
+                        <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+                            <span class="badge bg-success-subtle text-success border border-success">Billable: Accepted leads</span>
+                            <span class="text-muted small">Draft invoice = Accepted (billable) leads × CPL for selected month.</span>
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label small text-muted">Month</label>
-                        <input class="form-control form-control-sm" name="month" value="<?php echo htmlspecialchars($monthStr); ?>" readonly>
+                    <div class="col-lg-2">
+                        <label class="form-label small text-muted mb-1">Month</label>
+                        <input class="form-control" name="month" value="<?php echo htmlspecialchars($monthStr); ?>" readonly>
                     </div>
-                    <div class="col-md-2 d-grid">
-                        <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-file-earmark-plus me-1"></i>Create Draft</button>
+                    <div class="col-lg-2 d-grid">
+                        <button class="btn btn-primary" type="submit"><i class="bi bi-file-earmark-plus me-1"></i>Create Draft</button>
                     </div>
                 </form>
             </div>

@@ -25,15 +25,19 @@ $baseRoles = [
     'operations_director' => 'Operations – Director',
     'operations_manager' => 'Operations – Manager',
     'operations_agent' => 'Operations – Agent',
+    'agent' => 'Operations – Agent (Legacy)',
     'email_marketing_director' => 'Email Marketing – Director',
     'email_marketing_manager' => 'Email Marketing – Manager',
     'email_marketing_agent' => 'Email Marketing – Agent',
+    'email_marketing_executive' => 'Email Marketing – Executive',
     'qa_director' => 'Quality Assurance – Director',
     'qa_manager' => 'Quality Assurance – Manager',
     'qa_agent' => 'Quality Assurance – Agent',
+    'qa' => 'Quality Assurance – QA (Legacy)',
     'sales_director' => 'Sales – Director',
     'sales_manager' => 'Sales – Manager',
     'sdr' => 'Sales – SDR',
+    'form_filler' => 'Marketing – Form Filler',
     'client_admin' => 'Client – Admin',
     'client_sdr' => 'Client – SDR',
     'vendor_admin' => 'Vendor – Admin',
@@ -90,7 +94,13 @@ $basePermissions = [
     'sales.access' => 'Sales – Access',
     'clients.access' => 'Clients – Access',
     'vendors.access' => 'Vendors – Access',
-    'hr.access' => 'HR – Access',
+    'hr.access' => 'HR – Dashboard',
+    'hr.attendance' => 'HR – Attendance',
+    'hr.leaves' => 'HR – Paid Leaves',
+    'hr.payslips' => 'HR – Payslips',
+    'hr.attendance_admin' => 'HR – Attendance Admin',
+    'hr.shifts' => 'HR – Shifts',
+    'hr.payroll' => 'HR – Payroll',
     'revenue.access' => 'Revenue – Access',
 
     'admin.settings' => 'Admin – Settings',
@@ -106,7 +116,8 @@ $basePermissionGroups = [
     'QA' => ['qa.access','qa.assignments'],
     'Users' => ['users.profile','users.internal.manage','clients.users.manage','vendors.users.manage'],
     'Admin' => ['admin.settings','admin.analytics','admin.data_reset'],
-    'Other' => ['notifications.access','chat.access','sales.access','clients.access','vendors.access','hr.access','revenue.access'],
+    'HR & Payroll' => ['hr.access','hr.attendance','hr.leaves','hr.payslips','hr.attendance_admin','hr.shifts','hr.payroll'],
+    'Other' => ['notifications.access','chat.access','sales.access','clients.access','vendors.access','revenue.access'],
 ];
 
 $customPermissionsRaw = trim((string)(getAppSetting('access.custom_permissions', '') ?? ''));
@@ -147,7 +158,7 @@ $roleTemplates = [
         ],
         'vendor_manager' => [
             'label' => 'Vendor Manager',
-            'permissions' => ['dashboard.vendor','notifications.access','leads.view','campaigns.view','vendors.users.manage'],
+            'permissions' => ['dashboard.vendor','notifications.access','leads.view','leads.entry','leads.bulk_upload','leads.my','campaigns.view','vendors.users.manage','vendors.access','revenue.access'],
         ],
     ],
 ];
@@ -159,19 +170,23 @@ $default = [
     'operations_director' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.export','leads.entry','leads.bulk_upload','leads.tracking','campaigns.view','campaigns.export','clients.access','vendors.access'],
     'operations_manager' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.export','leads.entry','leads.bulk_upload','leads.tracking','campaigns.view','campaigns.export','clients.access','vendors.access'],
     'operations_agent' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.entry','leads.my','campaigns.view'],
+    'agent' => ['dashboard.operations','notifications.access','chat.access','leads.entry','leads.my','campaigns.view'],
     'email_marketing_director' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','campaigns.export'],
     'email_marketing_manager' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','campaigns.export'],
     'email_marketing_agent' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view'],
+    'email_marketing_executive' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view'],
     'qa_director' => ['dashboard.qa','notifications.access','chat.access','qa.access','qa.assignments','leads.view','leads.export','campaigns.view'],
     'qa_manager' => ['dashboard.qa','notifications.access','chat.access','qa.access','qa.assignments','leads.view','campaigns.view'],
     'qa_agent' => ['dashboard.qa','notifications.access','chat.access','qa.access','leads.view','campaigns.view'],
+    'qa' => ['dashboard.qa','notifications.access','chat.access','qa.access','leads.view','campaigns.view'],
     'sales_director' => ['dashboard.sales','notifications.access','chat.access','sales.access','campaigns.view','leads.view'],
     'sales_manager' => ['dashboard.sales','notifications.access','chat.access','sales.access','campaigns.view','leads.view'],
     'sdr' => ['dashboard.sales','notifications.access','chat.access','sales.access','leads.view'],
+    'form_filler' => ['dashboard.marketing','notifications.access','chat.access','leads.entry','leads.marketing','campaigns.view'],
     'client_admin' => ['dashboard.client','notifications.access','leads.view','campaigns.view','clients.users.manage'],
     'client_sdr' => ['dashboard.client','notifications.access','leads.view','campaigns.view'],
-    'vendor_admin' => ['dashboard.vendor','notifications.access','leads.view','campaigns.view','vendors.users.manage'],
-    'vendor_user' => ['dashboard.vendor','notifications.access','leads.view','campaigns.view'],
+    'vendor_admin' => ['dashboard.vendor','notifications.access','leads.view','leads.entry','leads.bulk_upload','leads.my','campaigns.view','vendors.users.manage','vendors.access','revenue.access'],
+    'vendor_user' => ['dashboard.vendor','notifications.access','leads.view','leads.entry','leads.bulk_upload','leads.my','campaigns.view'],
 ];
 
 $cfg = getAccessRolePermissionsConfig();
@@ -285,12 +300,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $redirectToRole($selectedRole, 'Role deleted.');
                 }
             }
-        } elseif ($action === 'disable') {
-            setAppSetting('access.role_permissions', '');
-            $cfg = $default;
-            $_SESSION['am_flash'] = ['message' => 'Permission system disabled. Role-based rules are active again.', 'type' => 'warning'];
-            header('Location: access-management?role=' . rawurlencode($selectedRole));
-            exit;
         } elseif ($action === 'add_permission') {
             $k = trim((string)($_POST['perm_key'] ?? ''));
             $k = preg_replace('/\\s+/', '.', strtolower($k));
@@ -372,7 +381,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$isEnabled = getAccessRolePermissionsConfig() !== null;
+$isEnabled = true;
 $selectedPerms = (array)($cfg[$selectedRole] ?? []);
 $isAll = in_array('*', $selectedPerms, true) || $selectedRole === 'admin';
 $cfgJson = json_encode($cfg, JSON_UNESCAPED_SLASHES);
@@ -410,9 +419,7 @@ if ($stmtCnt) {
       <div class="card border-0 shadow-sm">
         <div class="card-header bg-light fw-semibold d-flex align-items-center justify-content-between">
           <span>Roles</span>
-          <span class="badge <?php echo $isEnabled ? 'bg-success-subtle text-success border' : 'bg-warning-subtle text-warning border'; ?>">
-            <?php echo $isEnabled ? 'Enabled' : 'Disabled'; ?>
-          </span>
+          <span class="badge bg-success-subtle text-success border">Enabled</span>
         </div>
         <div class="card-body">
           <div class="text-muted small mb-2">Select a role to edit permissions.</div>
@@ -449,7 +456,6 @@ if ($stmtCnt) {
           <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#importModal"><i class="bi bi-upload me-1"></i>Import</button>
           <form method="post" class="d-grid gap-2">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
-            <button class="btn btn-outline-secondary btn-sm" type="submit" name="action" value="disable">Disable Permissions</button>
             <button class="btn btn-outline-danger btn-sm" type="submit" name="action" value="reset">Reset Defaults</button>
           </form>
         </div>
@@ -471,7 +477,7 @@ if ($stmtCnt) {
           <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
             <div>
               <div class="fw-semibold"><?php echo htmlspecialchars($roles[$selectedRole] ?? $selectedRole); ?></div>
-              <div class="text-muted small">Permissions apply across UI + backend when enforcement is enabled.</div>
+              <div class="text-muted small">Permissions apply across UI + backend.</div>
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-center">
               <select class="form-select form-select-sm" id="copyFromRole" style="width: 240px;" <?php echo $selectedRole === 'admin' ? 'disabled' : ''; ?>>
@@ -506,8 +512,9 @@ if ($stmtCnt) {
 
             <ul class="nav nav-tabs" role="tablist">
               <?php $ti = 0; foreach ($permissionGroups as $gName => $gList): ?>
+                <?php $gId = strtolower(preg_replace('/[^a-z0-9]+/i', '-', (string)$gName)); $gId = trim($gId, '-'); ?>
                 <li class="nav-item" role="presentation">
-                  <button class="nav-link <?php echo $ti === 0 ? 'active' : ''; ?>" data-bs-toggle="tab" data-bs-target="#tab-<?php echo htmlspecialchars($gName); ?>" type="button" role="tab">
+                  <button class="nav-link <?php echo $ti === 0 ? 'active' : ''; ?>" data-bs-toggle="tab" data-bs-target="#tab-<?php echo htmlspecialchars($gId); ?>" type="button" role="tab">
                     <?php echo htmlspecialchars($gName); ?>
                   </button>
                 </li>
@@ -516,10 +523,11 @@ if ($stmtCnt) {
 
             <div class="tab-content border border-top-0 rounded-bottom p-3">
               <?php $ti = 0; foreach ($permissionGroups as $gName => $gList): ?>
-                <div class="tab-pane fade <?php echo $ti === 0 ? 'show active' : ''; ?>" id="tab-<?php echo htmlspecialchars($gName); ?>" role="tabpanel">
+                <?php $gId = strtolower(preg_replace('/[^a-z0-9]+/i', '-', (string)$gName)); $gId = trim($gId, '-'); ?>
+                <div class="tab-pane fade <?php echo $ti === 0 ? 'show active' : ''; ?>" id="tab-<?php echo htmlspecialchars($gId); ?>" role="tabpanel">
                   <div class="d-flex justify-content-end gap-2 mb-3">
-                    <button type="button" class="btn btn-light border btn-sm" data-group-all="<?php echo htmlspecialchars($gName); ?>" <?php echo $selectedRole === 'admin' ? 'disabled' : ''; ?>>All</button>
-                    <button type="button" class="btn btn-light border btn-sm" data-group-none="<?php echo htmlspecialchars($gName); ?>" <?php echo $selectedRole === 'admin' ? 'disabled' : ''; ?>>None</button>
+                    <button type="button" class="btn btn-light border btn-sm" data-group-all="<?php echo htmlspecialchars($gId); ?>" <?php echo $selectedRole === 'admin' ? 'disabled' : ''; ?>>All</button>
+                    <button type="button" class="btn btn-light border btn-sm" data-group-none="<?php echo htmlspecialchars($gId); ?>" <?php echo $selectedRole === 'admin' ? 'disabled' : ''; ?>>None</button>
                   </div>
                   <div class="row g-2">
                     <?php foreach ($gList as $permKey): ?>
@@ -535,7 +543,7 @@ if ($stmtCnt) {
                             <input class="form-check-input perm-checkbox" type="checkbox"
                               name="perm[]"
                               value="<?php echo htmlspecialchars($permKey); ?>"
-                              data-group="<?php echo htmlspecialchars($gName); ?>"
+                              data-group="<?php echo htmlspecialchars($gId); ?>"
                               <?php echo $checked ? 'checked' : ''; ?>
                               <?php echo $selectedRole === 'admin' ? 'disabled' : ''; ?>>
                           </div>

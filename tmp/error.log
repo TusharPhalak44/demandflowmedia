@@ -103,3 +103,664 @@ Stack trace:
 Stack trace:
 #0 {main}
   thrown in C:\xampp\htdocs\CRM\demandflowmedia\modules\clients\client-campaigns.php on line 160
+[27-May-2026 23:38:31 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.manage on /leads/modules/leads/list
+[27-May-2026 23:41:17 Europe/Berlin] Unauthorized access attempt by user 38 for permission: users.profile on /leads/modules/users/profile
+[28-May-2026 14:33:23 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/list
+[28-May-2026 14:37:34 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function bind_param() on bool in C:\xampp\htdocs\leads\includes\functions.php:3105
+Stack trace:
+#0 C:\xampp\htdocs\leads\modules\leads\my-leads.php(207): updateLead(1355, Array)
+#1 {main}
+  thrown in C:\xampp\htdocs\leads\includes\functions.php on line 3105
+[28-May-2026 14:40:04 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/details?id=1076&edit=1&format=html&embed=1
+[28-May-2026 14:40:13 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/details?id=1076&edit=1&format=html&embed=1
+[28-May-2026 14:40:28 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/lead-details?id=1076
+[28-May-2026 14:40:58 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/lead-details?id=1353
+[28-May-2026 14:41:24 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/lead-details?id=1353
+[28-May-2026 14:58:12 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/lead-details?id=1353
+[28-May-2026 16:20:54 Europe/Berlin] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in C:\xampp\htdocs\leads\includes\functions.php:5166
+Stack trace:
+#0 C:\xampp\htdocs\leads\includes\functions.php(5166): mysqli_stmt->bind_param('iiissssssssi', 13, 7, NULL, 'campaign.end_wa...', 'campaign', 'Campaign ending...', '1010 - EHR Medi...', '../campaigns/ca...', '1af8c89bc7e4ee7...', 'high', 1)
+#1 C:\xampp\htdocs\leads\includes\functions.php(5652): createNotificationSmart(13, 'campaign.end_wa...', 'Campaign ending...', '1010 - EHR Medi...', '../campaigns/ca...', Array)
+#2 C:\xampp\htdocs\leads\modules\notifications\poll.php(32): notifyCampaignEndWarningsForUser(13)
+#3 {main}
+  thrown in C:\xampp\htdocs\leads\includes\functions.php on line 5166
+[28-May-2026 16:36:33 Europe/Berlin] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in C:\xampp\htdocs\leads\includes\functions.php:5166
+Stack trace:
+#0 C:\xampp\htdocs\leads\includes\functions.php(5166): mysqli_stmt->bind_param('iiissssssssi', 13, 7, NULL, 'campaign.end_wa...', 'campaign', 'Campaign ending...', '1010 - EHR Medi...', '../campaigns/ca...', '1af8c89bc7e4ee7...', 'high', 1)
+#1 C:\xampp\htdocs\leads\includes\functions.php(5652): createNotificationSmart(13, 'campaign.end_wa...', 'Campaign ending...', '1010 - EHR Medi...', '../campaigns/ca...', Array)
+#2 C:\xampp\htdocs\leads\modules\notifications\poll.php(32): notifyCampaignEndWarningsForUser(13)
+#3 {main}
+  thrown in C:\xampp\htdocs\leads\includes\functions.php on line 5166
+[28-May-2026 16:51:34 Europe/Berlin] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in C:\xampp\htdocs\leads\includes\functions.php:5166
+Stack trace:
+#0 C:\xampp\htdocs\leads\includes\functions.php(5166): mysqli_stmt->bind_param('iiissssssssi', 13, 7, NULL, 'campaign.end_wa...', 'campaign', 'Campaign ending...', '1010 - EHR Medi...', '../campaigns/ca...', '1af8c89bc7e4ee7...', 'high', 1)
+#1 C:\xampp\htdocs\leads\includes\functions.php(5652): createNotificationSmart(13, 'campaign.end_wa...', 'Campaign ending...', '1010 - EHR Medi...', '../campaigns/ca...', Array)
+#2 C:\xampp\htdocs\leads\modules\notifications\poll.php(32): notifyCampaignEndWarningsForUser(13)
+#3 {main}
+  thrown in C:\xampp\htdocs\leads\includes\functions.php on line 5166
+[28-May-2026 16:58:47 Europe/Berlin] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in C:\xampp\htdocs\leads\includes\functions.php:5166
+Stack trace:
+#0 C:\xampp\htdocs\leads\includes\functions.php(5166): mysqli_stmt->bind_param('iiissssssssi', 13, 7, NULL, 'campaign.end_wa...', 'campaign', 'Campaign ending...', '1010 - EHR Medi...', '../campaigns/ca...', '1af8c89bc7e4ee7...', 'high', 1)
+#1 C:\xampp\htdocs\leads\includes\functions.php(5652): createNotificationSmart(13, 'campaign.end_wa...', 'Campaign ending...', '1010 - EHR Medi...', '../campaigns/ca...', Array)
+#2 C:\xampp\htdocs\leads\includes\layout\topbar.php(22): notifyCampaignEndWarningsForUser(13)
+#3 C:\xampp\htdocs\leads\includes\layout\app_start.php(226): include('C:\\xampp\\htdocs...')
+#4 C:\xampp\htdocs\leads\modules\dashboard\operations-dashboard.php(189): include('C:\\xampp\\htdocs...')
+#5 {main}
+  thrown in C:\xampp\htdocs\leads\includes\functions.php on line 5166
+[28-May-2026 16:59:41 Europe/Berlin] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in C:\xampp\htdocs\leads\includes\functions.php:5166
+Stack trace:
+#0 C:\xampp\htdocs\leads\includes\functions.php(5166): mysqli_stmt->bind_param('iiissssssssi', 13, NULL, NULL, 'lead.status_upd...', 'direct', 'Lead status upd...', 'LD20260518B6AD2...', '../leads/lead-d...', 'c07415abfe9ccff...', 'normal', 1)
+#1 C:\xampp\htdocs\leads\includes\functions.php(5373): createNotificationSmart(13, 'lead.status_upd...', 'Lead status upd...', 'LD20260518B6AD2...', '../leads/lead-d...', Array)
+#2 C:\xampp\htdocs\leads\includes\functions.php(8782): notifyUsers(Array, 'lead.status_upd...', 'Lead status upd...', 'LD20260518B6AD2...', '../leads/lead-d...')
+#3 C:\xampp\htdocs\leads\modules\qa\action.php(50): updateLeadQuality(1076, 'Disqualified', '', 17, '', 'Pending')
+#4 {main}
+  thrown in C:\xampp\htdocs\leads\includes\functions.php on line 5166
+[28-May-2026 17:00:47 Europe/Berlin] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in C:\xampp\htdocs\leads\includes\functions.php:5166
+Stack trace:
+#0 C:\xampp\htdocs\leads\includes\functions.php(5166): mysqli_stmt->bind_param('iiissssssssi', 8, 7, 17, 'lead.updated', 'campaign', 'Lead updated', 'LD20260528B9F38...', '../leads/lead-d...', '4a8cdc212fe9e6c...', 'normal', 1)
+#1 C:\xampp\htdocs\leads\includes\functions.php(5851): createNotificationSmart(8, 'lead.updated', 'Lead updated', 'LD20260528B9F38...', '../leads/lead-d...', Array)
+#2 C:\xampp\htdocs\leads\includes\functions.php(3136): notifyLeadUpdated(1354, 17, Array)
+#3 C:\xampp\htdocs\leads\includes\functions.php(6421): updateLead(1354, Array)
+#4 C:\xampp\htdocs\leads\modules\leads\leads-edit.php(116): saveFormSubmission(10, 7, 1354, 17, Array)
+#5 {main}
+  thrown in C:\xampp\htdocs\leads\includes\functions.php on line 5166
+[28-May-2026 17:01:07 Europe/Berlin] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in C:\xampp\htdocs\leads\includes\functions.php:5166
+Stack trace:
+#0 C:\xampp\htdocs\leads\includes\functions.php(5166): mysqli_stmt->bind_param('iiissssssssi', 8, 7, 17, 'lead.updated', 'campaign', 'Lead updated', 'LD20260528B9F38...', '../leads/lead-d...', '4a8cdc212fe9e6c...', 'normal', 1)
+#1 C:\xampp\htdocs\leads\includes\functions.php(5851): createNotificationSmart(8, 'lead.updated', 'Lead updated', 'LD20260528B9F38...', '../leads/lead-d...', Array)
+#2 C:\xampp\htdocs\leads\includes\functions.php(3136): notifyLeadUpdated(1354, 17, Array)
+#3 C:\xampp\htdocs\leads\includes\functions.php(6421): updateLead(1354, Array)
+#4 C:\xampp\htdocs\leads\modules\leads\leads-edit.php(116): saveFormSubmission(10, 7, 1354, 17, Array)
+#5 {main}
+  thrown in C:\xampp\htdocs\leads\includes\functions.php on line 5166
+[28-May-2026 17:01:27 Europe/Berlin] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in C:\xampp\htdocs\leads\includes\functions.php:5166
+Stack trace:
+#0 C:\xampp\htdocs\leads\includes\functions.php(5166): mysqli_stmt->bind_param('iiissssssssi', 8, 7, 17, 'lead.updated', 'campaign', 'Lead updated', 'LD20260528B9F38...', '../leads/lead-d...', '4a8cdc212fe9e6c...', 'normal', 1)
+#1 C:\xampp\htdocs\leads\includes\functions.php(5851): createNotificationSmart(8, 'lead.updated', 'Lead updated', 'LD20260528B9F38...', '../leads/lead-d...', Array)
+#2 C:\xampp\htdocs\leads\includes\functions.php(3136): notifyLeadUpdated(1354, 17, Array)
+#3 C:\xampp\htdocs\leads\includes\functions.php(6421): updateLead(1354, Array)
+#4 C:\xampp\htdocs\leads\modules\leads\leads-edit.php(116): saveFormSubmission(10, 7, 1354, 17, Array)
+#5 {main}
+  thrown in C:\xampp\htdocs\leads\includes\functions.php on line 5166
+[28-May-2026 17:06:54 Europe/Berlin] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in C:\xampp\htdocs\leads\includes\functions.php:5166
+Stack trace:
+#0 C:\xampp\htdocs\leads\includes\functions.php(5166): mysqli_stmt->bind_param('iiissssssssi', 13, 7, NULL, 'campaign.end_wa...', 'campaign', 'Campaign ending...', '1010 - EHR Medi...', '../campaigns/ca...', '1af8c89bc7e4ee7...', 'high', 1)
+#1 C:\xampp\htdocs\leads\includes\functions.php(5652): createNotificationSmart(13, 'campaign.end_wa...', 'Campaign ending...', '1010 - EHR Medi...', '../campaigns/ca...', Array)
+#2 C:\xampp\htdocs\leads\modules\notifications\poll.php(32): notifyCampaignEndWarningsForUser(13)
+#3 {main}
+  thrown in C:\xampp\htdocs\leads\includes\functions.php on line 5166
+[28-May-2026 17:13:50 Europe/Berlin] Unauthorized access attempt by user 13 for permission: leads.view on /leads/modules/leads/list
+[28-May-2026 18:09:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:09:56 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:10:46 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:10:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:11:36 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:11:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:12:26 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:12:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:13:16 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:13:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:14:06 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:14:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:14:56 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:15:46 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:15:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:16:36 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:16:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:17:26 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:17:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:18:16 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:18:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:19:06 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:19:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:19:56 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:20:46 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:20:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:21:36 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:21:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:22:26 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:22:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:23:16 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:23:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:24:06 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:24:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:24:56 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:25:46 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:25:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:26:36 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:26:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:27:26 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:27:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:28:16 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:28:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:29:06 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:29:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:29:56 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:30:46 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:30:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:31:36 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:31:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:32:26 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:32:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:33:16 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:33:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:34:06 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:34:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:34:56 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:35:46 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:35:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:36:36 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:36:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:37:26 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:37:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:38:16 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:38:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:39:03 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:39:53 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:39:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:40:43 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:40:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:41:33 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:41:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:42:23 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:42:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:43:13 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:43:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:44:03 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:44:53 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:44:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:45:43 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:45:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:46:33 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:46:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:47:23 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:47:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:48:13 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:48:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:48:59 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:49:22 Europe/Berlin] Unauthorized access attempt by user 13 for permission: dashboard.operations on /leads/modules/dashboard/operations-dashboard
+[28-May-2026 18:49:28 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:50:12 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:50:14 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:50:47 Europe/Berlin] Unauthorized access attempt by user 48 for permission: qa.access on /leads/modules/qa/audit?search=&campaign_id=0&agent_id=0&qa_status=Qualified&date_from=&date_to=
+[28-May-2026 18:50:52 Europe/Berlin] Unauthorized access attempt by user 48 for permission: qa.access on /leads/modules/qa/dashboard
+[28-May-2026 18:51:17 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:51:19 Europe/Berlin] Unauthorized access attempt by user 48 for permission: qa.access on /leads/modules/qa/dashboard
+[28-May-2026 18:51:23 Europe/Berlin] Unauthorized access attempt by user 48 for permission: users.profile on /leads/modules/users/profile
+[28-May-2026 18:52:09 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:52:19 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:52:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:53:09 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:53:39 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:53:55 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:54:24 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:54:45 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:55:09 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:55:35 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:55:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:56:25 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:56:39 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:57:15 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:57:40 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:58:05 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:58:41 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:58:55 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:59:45 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 18:59:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:00:35 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:00:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:01:25 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:01:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:02:15 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:02:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:03:05 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:03:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:03:55 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:04:45 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:04:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:05:35 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:05:51 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:06:25 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:06:36 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:07:15 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:07:46 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:08:05 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:08:32 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:08:55 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:09:17 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:09:45 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:10:02 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:10:35 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:11:36 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:11:49 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:12:26 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:13:05 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:13:16 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:13:43 Europe/Berlin] Unauthorized access attempt by user 48 for permission: hr.access on /leads/modules/hr/hr-dashboard
+[28-May-2026 19:14:06 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:14:29 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:14:56 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:15:14 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:15:46 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:15:59 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:16:36 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:16:44 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:17:26 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:17:29 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:18:16 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:19:06 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:19:17 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:19:56 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:20:39 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:20:46 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:21:24 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:21:27 Europe/Berlin] Unauthorized access attempt by user 13 for permission: dashboard.operations on /leads/modules/dashboard/operations-dashboard
+[28-May-2026 19:22:09 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:22:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:22:56 Europe/Berlin] Unauthorized access attempt by user 13 for permission: hr.payroll on /leads/modules/hr/salary-setup
+[28-May-2026 19:23:39 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:24:09 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:24:24 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:24:54 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:25:09 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:25:41 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:25:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:26:31 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:26:39 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:27:21 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:27:24 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:28:09 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:28:42 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:28:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:29:28 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:29:39 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:30:18 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:30:23 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:31:08 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:31:09 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:31:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:31:58 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:32:39 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:32:48 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:33:24 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:33:38 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:34:08 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:34:28 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:35:15 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:35:20 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:36:05 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:36:55 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:37:21 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:37:45 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:38:06 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:38:35 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:38:51 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:39:22 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:39:36 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:40:12 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:40:21 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:41:02 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:41:06 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:41:51 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:41:52 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:42:42 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:42:52 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:43:32 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:43:53 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:44:22 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:44:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:45:12 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:45:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:46:02 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:46:52 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:46:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:47:42 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:47:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:48:32 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:48:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:49:22 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:49:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:50:12 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:50:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:51:02 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:51:52 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:51:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:52:41 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:52:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:53:31 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:53:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:54:21 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:54:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:55:11 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:55:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:56:01 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:56:51 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:56:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:57:41 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:57:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:58:31 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:58:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:59:21 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 19:59:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:00:11 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:00:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:01:01 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:01:51 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:01:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:02:41 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:02:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:03:31 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:03:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:04:21 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:04:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:05:11 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:05:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:06:01 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:06:51 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:06:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:07:41 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:07:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:08:31 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:08:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:09:21 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:09:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:10:11 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:10:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:11:01 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:11:51 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:11:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:12:41 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:12:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:13:31 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:13:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:14:21 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:14:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:15:11 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:15:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:16:01 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:16:51 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:16:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:17:41 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:17:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:18:31 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:18:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:19:21 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:19:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:20:11 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:20:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:21:01 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:21:51 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:21:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:22:21 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:22:41 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:23:06 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:23:31 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:23:51 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:24:21 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:24:36 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:25:11 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:25:21 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:26:01 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:26:06 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:26:51 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:26:51 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:27:35 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:27:41 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:28:21 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:28:28 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:29:27 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:29:41 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:30:11 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:30:38 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:30:57 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:31:28 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:31:42 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:32:18 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:32:27 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:33:08 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:33:12 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:33:57 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:33:58 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:34:48 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:34:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:35:27 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:35:38 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:36:12 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:36:28 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:37:13 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:37:18 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:37:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:38:08 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:38:26 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:38:58 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:39:12 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:39:48 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:40:13 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:40:38 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:40:54 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:41:27 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:41:28 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:42:12 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:42:18 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:43:08 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:43:13 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:43:58 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:44:10 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:44:48 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:44:56 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:45:38 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:45:40 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:46:26 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:46:28 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:47:11 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:47:15 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:47:56 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:48:05 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:48:41 Europe/Berlin] Unauthorized access attempt by user 48 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:48:55 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:49:45 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:50:35 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 20:51:25 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:02:47 Europe/Berlin] Unauthorized access attempt by user 26 for permission: clients.access on /leads/modules/clients/clients?client_id=5
+[28-May-2026 21:04:06 Europe/Berlin] Unauthorized access attempt by user 64 for permission: clients.access on /leads/modules/clients/clients?client_id=5
+[28-May-2026 21:04:24 Europe/Berlin] Unauthorized access attempt by user 64 for permission: clients.access on /leads/modules/clients/clients?client_id=5
+[28-May-2026 21:16:43 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:17:33 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:18:53 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:19:43 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:20:33 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:21:23 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:21:29 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/mark-read-ajax.php
+[28-May-2026 21:22:17 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:23:07 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:23:57 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:24:46 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:25:36 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:26:26 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:27:16 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:28:06 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:28:56 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:29:46 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:30:36 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:31:26 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:32:16 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:33:03 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:33:53 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:34:43 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:35:33 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:36:23 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:37:13 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:38:03 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:38:53 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:39:43 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:40:33 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:41:23 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:42:13 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:43:03 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:43:53 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:44:43 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:45:33 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:46:23 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:47:13 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:48:04 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:48:54 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:49:43 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:50:33 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:51:23 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:52:13 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:53:03 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:53:49 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:54:39 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:55:29 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:56:19 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:57:09 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:57:59 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:58:49 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 21:59:39 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:00:29 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:01:19 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:02:09 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:02:59 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:03:49 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:04:39 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:05:29 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:06:19 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:07:09 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:07:59 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:08:49 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:08 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:09 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:15 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:32 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:34 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:35 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:35 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:35 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:35 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:35 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:36 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:39 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:41 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:41 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:42 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:42 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:44 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:45 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:45 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:46 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:49 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:09:54 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:00 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:00 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:01 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:01 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:01 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:01 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:02 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:02 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:03 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:03 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:03 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:03 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:03 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:04 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:04 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:04 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:04 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:04 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:05 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:11 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:29 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:39 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:45 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:50 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:50 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:51 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:10:56 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:11:19 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:11:24 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:11:30 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:12:03 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:12:09 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:12:09 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:12:15 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:12:54 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:12:59 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:13:00 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:13:15 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:13:16 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:13:17 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:13:18 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:13:32 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:13:32 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:13:32 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:13:33 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:13:39 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:13:49 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:14:24 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:14:39 Europe/Berlin] PHP Fatal error:  Cannot redeclare notifySalesFollowupRemindersForUser() (previously declared in C:\xampp\htdocs\leads\includes\functions.php:4055) in C:\xampp\htdocs\leads\includes\functions.php on line 6241
+[28-May-2026 22:14:47 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/mark-read-ajax.php
+[28-May-2026 22:14:48 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/mark-read-ajax.php
+[28-May-2026 22:15:34 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:16:24 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:17:14 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:18:04 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:18:54 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:19:44 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:20:34 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:21:24 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:22:14 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:23:05 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:23:54 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:24:44 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:25:34 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:26:24 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:27:14 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:28:04 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:28:54 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:29:44 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:30:34 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:31:24 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:32:14 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:33:04 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:33:54 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:34:44 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:35:34 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:36:24 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:37:14 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:37:29 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/mark-read-ajax.php
+[28-May-2026 22:37:42 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/mark-read-ajax.php
+[28-May-2026 22:38:14 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:39:05 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:39:55 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:40:45 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:41:35 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:42:25 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:43:12 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:44:02 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:44:52 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:45:42 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:46:28 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:47:18 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:48:08 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:48:18 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/mark-read-ajax.php
+[28-May-2026 22:48:57 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:49:47 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:50:33 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:51:23 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:52:13 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:53:03 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:53:51 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:54:41 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:55:31 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:56:21 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:57:11 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:57:59 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:58:49 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 22:59:39 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 23:00:29 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 23:01:19 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 23:02:06 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 23:02:56 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 23:03:46 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php
+[28-May-2026 23:04:36 Europe/Berlin] Unauthorized access attempt by user 13 for permission: notifications.access on /leads/modules/notifications/poll.php

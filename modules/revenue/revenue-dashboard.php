@@ -76,12 +76,12 @@ $stmt = $conn->prepare("
         COALESCE(cl.client_code, d.client_code, '') AS client_code,
         COALESCE(cl.name, '') AS client_name,
         COALESCE(d.cpl_currency, 'USD') AS currency,
-        COUNT(l.id) AS delivered,
+        COUNT(l.id) AS billable,
         SUM(COALESCE(d.cpl, 0)) AS revenue
     FROM leads l
     LEFT JOIN campaign_details d ON d.campaign_id = l.campaign_id
     LEFT JOIN clients cl ON cl.client_code = d.client_code
-    WHERE l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ?
+    WHERE l.client_delivery_status = 'Accepted' AND l.created_at BETWEEN ? AND ?
     GROUP BY client_code, client_name, currency
     ORDER BY revenue DESC
 ");
@@ -98,11 +98,11 @@ $stmt = $conn->prepare("
         l.agent_id,
         COALESCE(l.agent_name, '') AS agent_name,
         COALESCE(d.cpl_currency, 'USD') AS currency,
-        COUNT(l.id) AS delivered,
+        COUNT(l.id) AS billable,
         SUM(COALESCE(d.cpl, 0)) AS revenue
     FROM leads l
     LEFT JOIN campaign_details d ON d.campaign_id = l.campaign_id
-    WHERE l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ?
+    WHERE l.client_delivery_status = 'Accepted' AND l.created_at BETWEEN ? AND ?
     GROUP BY l.agent_id, agent_name, currency
     ORDER BY revenue DESC
 ");
@@ -123,8 +123,8 @@ $stmt = $conn->prepare("
         COALESCE(cl.name, '') AS client_name,
         d.cpl,
         COALESCE(d.cpl_currency, 'USD') AS currency,
-        SUM(CASE WHEN l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS delivered,
-        SUM(CASE WHEN l.client_delivery_status IN ('Delivered','Accepted','Rejected','TBD(To be discussed)','In Progress') AND l.created_at BETWEEN ? AND ? THEN COALESCE(d.cpl, 0) ELSE 0 END) AS generated,
+        SUM(CASE WHEN l.client_delivery_status = 'Accepted' AND l.created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS billable,
+        SUM(CASE WHEN l.client_delivery_status = 'Accepted' AND l.created_at BETWEEN ? AND ? THEN COALESCE(d.cpl, 0) ELSE 0 END) AS generated,
         r.revenue AS allocated,
         COALESCE(r.currency, d.cpl_currency, 'USD') AS allocated_currency
     FROM campaigns c
@@ -184,7 +184,7 @@ foreach ($agentRows as $r) {
         $agentAgg[$aid] = [
             'agent_id' => $aid,
             'agent_name' => (string)($r['agent_name'] ?? ''),
-            'delivered' => 0,
+            'billable' => 0,
             'usd' => 0.0,
             'inr' => 0.0,
             'inr_from_usd' => 0.0,
@@ -192,7 +192,7 @@ foreach ($agentRows as $r) {
             'cost_inr' => (float)($agentCostMap[$aid] ?? 0),
         ];
     }
-    $agentAgg[$aid]['delivered'] += (int)($r['delivered'] ?? 0);
+    $agentAgg[$aid]['billable'] += (int)($r['billable'] ?? 0);
     $cur = strtoupper(trim((string)($r['currency'] ?? 'USD')));
     if ($cur === '') $cur = 'USD';
     $rev = (float)($r['revenue'] ?? 0);
@@ -454,7 +454,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
         <div class="col-lg-6">
             <div class="card border-0 shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <div class="fw-semibold">Client-wise Revenue (Delivered Leads)</div>
+                    <div class="fw-semibold">Client-wise Revenue (Accepted Leads)</div>
                     <a class="btn btn-sm btn-outline-primary" href="revenue?month=<?php echo urlencode($monthStr); ?>"><i class="bi bi-currency-dollar me-1"></i>Open Revenue</a>
                 </div>
                 <div class="table-responsive">
@@ -462,18 +462,18 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                         <thead class="table-light">
                             <tr>
                                 <th>Client</th>
-                                <th class="text-end">Delivered</th>
+                                <th class="text-end">Accepted</th>
                                 <th class="text-end">Revenue</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($clientRows)): ?>
-                                <tr><td colspan="3" class="text-center text-muted py-4">No delivered leads in this month.</td></tr>
+                                <tr><td colspan="3" class="text-center text-muted py-4">No accepted (billable) leads in this month.</td></tr>
                             <?php else: ?>
                                 <?php foreach (array_slice($clientRows, 0, 12) as $r): ?>
                                     <tr>
                                         <td class="fw-semibold"><?php echo htmlspecialchars((string)($r['client_name'] ?? ($r['client_code'] ?? ''))); ?></td>
-                                        <td class="text-end"><?php echo number_format((int)($r['delivered'] ?? 0)); ?></td>
+                                        <td class="text-end"><?php echo number_format((int)($r['billable'] ?? 0)); ?></td>
                                         <td class="text-end fw-semibold"><?php echo htmlspecialchars((string)($r['currency'] ?? 'USD') . ' ' . number_format((float)($r['revenue'] ?? 0), 2)); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -501,7 +501,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                         <thead class="table-light">
                             <tr>
                                 <th>Agent</th>
-                                <th class="text-end">Delivered</th>
+                                <th class="text-end">Accepted</th>
                                 <th class="text-end">Revenue (INR)</th>
                                 <th class="text-end">Cost (INR)</th>
                                 <th class="text-end">ROI</th>
@@ -509,7 +509,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                         </thead>
                         <tbody>
                             <?php if (empty($agentRoiRows)): ?>
-                                <tr><td colspan="5" class="text-center text-muted py-4">No delivered leads in this month.</td></tr>
+                                <tr><td colspan="5" class="text-center text-muted py-4">No accepted (billable) leads in this month.</td></tr>
                             <?php else: ?>
                                 <?php foreach (array_slice($agentRoiRows, 0, 12) as $r): ?>
                                     <?php
@@ -523,7 +523,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                                                 <?php echo htmlspecialchars((string)($r['agent_name'] ?? '')); ?>
                                             </a>
                                         </td>
-                                        <td class="text-end"><?php echo number_format((int)($r['delivered'] ?? 0)); ?></td>
+                                        <td class="text-end"><?php echo number_format((int)($r['billable'] ?? 0)); ?></td>
                                         <td class="text-end fw-semibold">₹ <?php echo number_format($revInr, 2); ?></td>
                                         <td class="text-end">₹ <?php echo number_format($costInr, 2); ?></td>
                                         <td class="text-end"><?php echo $roiX !== null ? number_format((float)$roiX, 2) . 'x' : '<span class="text-muted">—</span>'; ?></td>
@@ -550,7 +550,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                         <thead class="table-light">
                             <tr>
                                 <th>Campaign</th>
-                                <th class="text-end">Delivered</th>
+                                <th class="text-end">Accepted</th>
                                 <th class="text-end">Generated</th>
                                 <th class="text-end">Allocated</th>
                             </tr>
@@ -562,7 +562,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                                 <?php foreach (array_slice($campaignRows, 0, 12) as $r): ?>
                                     <tr>
                                         <td class="fw-semibold"><?php echo htmlspecialchars((string)($r['name'] ?? '')); ?></td>
-                                        <td class="text-end"><?php echo number_format((int)($r['delivered'] ?? 0)); ?></td>
+                                        <td class="text-end"><?php echo number_format((int)($r['billable'] ?? 0)); ?></td>
                                         <td class="text-end fw-semibold"><?php echo htmlspecialchars((string)($r['currency'] ?? 'USD') . ' ' . number_format((float)($r['generated'] ?? 0), 2)); ?></td>
                                         <td class="text-end"><?php echo !empty($r['allocated']) ? htmlspecialchars((string)($r['allocated_currency'] ?? 'USD') . ' ' . number_format((float)($r['allocated'] ?? 0), 2)) : '<span class="text-muted">—</span>'; ?></td>
                                     </tr>

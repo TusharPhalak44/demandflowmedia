@@ -12,6 +12,10 @@ require_once __DIR__ . '/../../includes/functions.php';
 // Ensure user has appropriate role
 requireRole(['admin','agent','operations_agent','operations_manager','operations_director','form_filler','email_marketing_executive','email_marketing_agent','email_marketing_manager','email_marketing_director']);
 $user = getCurrentUser();
+$isVendor = isVendor();
+$vendorId = (int)($user['vendor_id'] ?? 0);
+$isVendorUser = ((string)($user['role'] ?? '') === 'vendor_user');
+$canLeadEntry = userHasPermission('leads.entry');
 
 // CSRF token generation
 ensureCsrfToken();
@@ -30,31 +34,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if (!$lead) {
             $editMessage = 'Lead not found.';
             $editMessageClass = 'danger';
+        } elseif (!isAdmin() && $isVendor) {
+            $leadVendorId = (int)($lead['vendor_id'] ?? 0);
+            $leadAgentId = (int)($lead['agent_id'] ?? 0);
+            if ($vendorId <= 0 || $leadVendorId !== $vendorId) {
+                $editMessage = 'You can only edit your own leads.';
+                $editMessageClass = 'danger';
+            } elseif ($isVendorUser && $leadAgentId !== (int)$user['id']) {
+                $editMessage = 'You can only edit your own leads.';
+                $editMessageClass = 'danger';
+            }
         } elseif (!isAdmin() && (int)($lead['agent_id'] ?? 0) !== (int)$user['id']) {
             $editMessage = 'You can only edit your own leads.';
             $editMessageClass = 'danger';
         } else {
             $cf = $_POST['cf'] ?? [];
             $update = [
-                'first_name' => $_POST['first_name'] ?? null,
-                'last_name' => $_POST['last_name'] ?? null,
-                'job_title' => $_POST['job_title'] ?? null,
-                'email' => $_POST['email'] ?? null,
-                'linkedin_link' => $_POST['linkedin_link'] ?? null,
-                'contact_phone' => $_POST['contact_phone'] ?? null,
-                'industry' => $_POST['industry'] ?? ($cf['industry'] ?? null),
-                'company_linkedin' => $_POST['company_linkedin'] ?? null,
-                'company_name' => $_POST['company_name'] ?? null,
-                'company_size' => $_POST['company_size'] ?? ($cf['company_size'] ?? ($cf['employee_size'] ?? null)),
-                'country' => $_POST['country'] ?? ($cf['country'] ?? null),
-                'lead_comment' => $_POST['lead_comment'] ?? null,
-                // Reset QA-related fields
                 'qa_status' => 'Pending',
                 'qa_comment' => null,
                 'qa_reviewed_by' => null,
                 'qa_updated_at' => null,
                 'updated_by' => (int)($user['id'] ?? 0),
             ];
+            $setIfPosted = function(string $key, ?string $targetKey = null) use (&$update): void {
+                if (!array_key_exists($key, $_POST)) return;
+                $k = $targetKey ?? $key;
+                $v = $_POST[$key];
+                if (is_array($v)) return;
+                $update[$k] = $v;
+            };
+            foreach ([
+                'first_name',
+                'last_name',
+                'job_title',
+                'email',
+                'linkedin_link',
+                'contact_phone',
+                'company_linkedin',
+                'company_name',
+                'company_size',
+                'country',
+                'industry',
+            ] as $k) {
+                $setIfPosted($k);
+            }
+            if (array_key_exists('lead_comment', $_POST)) {
+                $update['lead_comment'] = (string)($_POST['lead_comment'] ?? '');
+            }
 
             $campaignId = isset($_POST['campaign_id']) ? (int)$_POST['campaign_id'] : (int)($lead['campaign_id'] ?? 0);
             $formId = isset($_POST['form_id']) ? (int)$_POST['form_id'] : 0;
@@ -81,16 +107,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $form = getFormById($formId) ?: getFormForCampaign($campaignId);
                 $fields = (array)($form['schema']['fields'] ?? []);
                 $selectMap = getSelectOptionsByFormSchema((array)($form['schema'] ?? []), ['industry','employee_size','company_size','country','software_implementation_timeline']);
-                if (!empty($selectMap['industry']) && !valueInAllowedOptions((string)($update['industry'] ?? ''), $selectMap['industry'])) {
+                if (array_key_exists('industry', $_POST) && !empty($selectMap['industry']) && !valueInAllowedOptions((string)($update['industry'] ?? ''), $selectMap['industry'])) {
                     $editMessage = 'Invalid Industry. Allowed: ' . implode(' | ', $selectMap['industry']);
                     $editMessageClass = 'danger';
                 }
                 $empOpts = $selectMap['employee_size'] ?? ($selectMap['company_size'] ?? null);
-                if (empty($editMessage) && is_array($empOpts) && !valueInAllowedOptions((string)($update['company_size'] ?? ''), $empOpts)) {
+                if (empty($editMessage) && array_key_exists('company_size', $_POST) && is_array($empOpts) && !valueInAllowedOptions((string)($update['company_size'] ?? ''), $empOpts)) {
                     $editMessage = 'Invalid Employee Size. Allowed: ' . implode(' | ', $empOpts);
                     $editMessageClass = 'danger';
                 }
-                if (empty($editMessage) && !empty($selectMap['country']) && !valueInAllowedOptions((string)($update['country'] ?? ''), $selectMap['country'])) {
+                if (empty($editMessage) && array_key_exists('country', $_POST) && !empty($selectMap['country']) && !valueInAllowedOptions((string)($update['country'] ?? ''), $selectMap['country'])) {
                     $editMessage = 'Invalid Country. Allowed: ' . implode(' | ', $selectMap['country']);
                     $editMessageClass = 'danger';
                 }
@@ -217,7 +243,14 @@ $perPage = min(500, $perPage);
 
 // Build filters array
 $filters = [];
-if (!isAdmin()) { $filters['agent_id'] = $user['id']; }
+if (!isAdmin()) {
+    if ($isVendor) {
+        if ($vendorId > 0) $filters['vendor_id'] = $vendorId;
+        if ($isVendorUser) $filters['agent_id'] = $user['id'];
+    } else {
+        $filters['agent_id'] = $user['id'];
+    }
+}
 if (!empty($campaignId)) $filters['campaign_id'] = $campaignId;
 if (!empty($dateFrom)) $filters['date_from'] = $dateFrom;
 if (!empty($dateTo)) $filters['date_to'] = $dateTo;
@@ -236,9 +269,9 @@ $campaigns = getCampaigns();
     <div class="container-fluid px-0">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="h3 mb-0">My Leads</h2>
-            <a href="agent.php" class="btn btn-primary btn-sm">
+            <?php if ($canLeadEntry): ?><a href="agent.php" class="btn btn-primary btn-sm">
                 <i class="bi bi-plus-circle me-1"></i> New Lead
-            </a>
+            </a><?php endif; ?>
         </div>
 
         <?php if (!empty($editMessage)): ?>

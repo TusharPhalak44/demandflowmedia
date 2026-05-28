@@ -52,6 +52,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 'qa_updated_at' => null,
                 'updated_by' => (int)($user['id'] ?? 0),
             ];
+            $setIfPosted = function(string $key, ?string $targetKey = null) use (&$update): void {
+                if (!array_key_exists($key, $_POST)) return;
+                $k = $targetKey ?? $key;
+                $v = $_POST[$key];
+                if (is_array($v)) return;
+                $update[$k] = $v;
+            };
+            foreach ([
+                'first_name',
+                'last_name',
+                'job_title',
+                'email',
+                'linkedin_link',
+                'contact_phone',
+                'industry',
+                'company_linkedin',
+                'company_name',
+                'company_website',
+                'company_size',
+                'country',
+                'software_implementation_timeline',
+            ] as $k) {
+                $setIfPosted($k);
+            }
             if (array_key_exists('lead_comment', $_POST)) {
                 $update['lead_comment'] = (string)($_POST['lead_comment'] ?? '');
             }
@@ -117,6 +141,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $update['form_done'] = 'Yes';
                     $update['form_filled_time'] = date('Y-m-d H:i:s');
                     logLeadActivity($leadId, (int)($user['id'] ?? 0), 'form_submission_saved', ['form_id' => (int)($form['form_id'] ?? $formId)]);
+                }
+
+                if ($editMessage === '') {
+                    $selectMap = getSelectOptionsByFormSchema((array)($form['schema'] ?? []), ['industry','employee_size','company_size','country','software_implementation_timeline']);
+                    if (!empty($selectMap['industry']) && array_key_exists('industry', $_POST) && !valueInAllowedOptions((string)($update['industry'] ?? ''), $selectMap['industry'])) {
+                        $editMessage = 'Invalid Industry. Allowed: ' . implode(' | ', $selectMap['industry']);
+                        $editMessageClass = 'danger';
+                    }
+                    $empOpts = $selectMap['employee_size'] ?? ($selectMap['company_size'] ?? null);
+                    if ($editMessage === '' && is_array($empOpts) && array_key_exists('company_size', $_POST) && !valueInAllowedOptions((string)($update['company_size'] ?? ''), $empOpts)) {
+                        $editMessage = 'Invalid Employee Size. Allowed: ' . implode(' | ', $empOpts);
+                        $editMessageClass = 'danger';
+                    }
+                    if ($editMessage === '' && !empty($selectMap['country']) && array_key_exists('country', $_POST) && !valueInAllowedOptions((string)($update['country'] ?? ''), $selectMap['country'])) {
+                        $editMessage = 'Invalid Country. Allowed: ' . implode(' | ', $selectMap['country']);
+                        $editMessageClass = 'danger';
+                    }
+                    if ($editMessage === '' && !empty($selectMap['software_implementation_timeline']) && array_key_exists('software_implementation_timeline', $_POST) && !valueInAllowedOptions((string)($update['software_implementation_timeline'] ?? ''), $selectMap['software_implementation_timeline'])) {
+                        $editMessage = 'Invalid Timeline. Allowed: ' . implode(' | ', $selectMap['software_implementation_timeline']);
+                        $editMessageClass = 'danger';
+                    }
                 }
             }
             
@@ -252,6 +297,14 @@ $leadsData = getLeads($filters, $perPage, $page);
 $leads = $leadsData['leads'];
 $total = $leadsData['total'];
 $totalPages = $leadsData['totalPages'];
+$normalizeRecordingUrl = function($path): string {
+    $p = trim((string)$path);
+    if ($p === '' || strtolower($p) === 'null') return '';
+    if (preg_match('#^https?://#i', $p)) return $p;
+    $p = '/' . ltrim($p, '/');
+    $base = function_exists('appBasePath') ? (string)appBasePath() : '';
+    return $base . $p;
+};
 
 // Dropdown data
 $campaigns = [];
@@ -415,7 +468,7 @@ $agents = getAgents();
                 <?php foreach ($leads as $lead): ?>
                     <?php
                         $name = trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? ''));
-                        $rec = $lead['recording_path'] ?? '';
+                        $rec = $normalizeRecordingUrl($lead['recording_path'] ?? '');
                         $qaStatusRow = $lead['qa_status'] ?? 'Pending';
                         $qaClass = 'bg-warning-subtle text-warning';
                         if ($qaStatusRow === 'Qualified') $qaClass = 'bg-success-subtle text-success';
@@ -559,7 +612,7 @@ $agents = getAgents();
                         <?php foreach ($leads as $i => $lead): ?>
                             <?php 
                                 $name = trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? ''));
-                                $rec = $lead['recording_path'] ?? '';
+                            $rec = $normalizeRecordingUrl($lead['recording_path'] ?? '');
                                 $canEditRow = $isPrivInternal || ((int)($lead['agent_id'] ?? 0) === (int)($user['id'] ?? 0));
                             ?>
                             <tr>
@@ -841,7 +894,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const button = event.relatedTarget;
             const leadId = button.getAttribute('data-lead-id');
             document.getElementById('editLeadBody').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>';
-            fetch('details?id=' + leadId + '&edit=1&format=html&post_to=list')
+            fetch('details?id=' + encodeURIComponent(leadId) + '&edit=1&format=html&embed=1&post_to=list', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            })
                 .then(r => r.text())
                 .then(html => { document.getElementById('editLeadBody').innerHTML = html; })
                 .catch(() => { document.getElementById('editLeadBody').innerHTML = '<div class="alert alert-danger m-3">Error loading edit form.</div>'; });

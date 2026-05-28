@@ -146,10 +146,10 @@ function fmtMinutes(int $m): string {
                         <div class="col-lg-8">
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <?php hrKpi('Punch In', $pIn !== '' ? date('H:i', strtotime($pIn)) : '—', 'bi-box-arrow-in-right'); ?>
+                                    <?php hrKpi('Punch In', $pIn !== '' ? hrFormatForDisplay($pIn, 'H:i') : '—', 'bi-box-arrow-in-right'); ?>
                                 </div>
                                 <div class="col-md-6">
-                                    <?php hrKpi('Punch Out', $pOut !== '' ? date('H:i', strtotime($pOut)) : '—', 'bi-box-arrow-right'); ?>
+                                    <?php hrKpi('Punch Out', $pOut !== '' ? hrFormatForDisplay($pOut, 'H:i') : '—', 'bi-box-arrow-right'); ?>
                                 </div>
                                 <div class="col-md-6">
                                     <?php hrKpi('Working Hours', fmtMinutes($workMin), 'bi-briefcase', 'Break: ' . fmtMinutes($breakMin)); ?>
@@ -264,7 +264,25 @@ function fmtMinutes(int $m): string {
                                     <div class="text-muted small mt-2">Shift</div>
                                     <div class="fw-semibold">
                                         <?php if ($shiftName !== '' && $shiftStart !== '' && $shiftEnd !== ''): ?>
-                                            <?php echo htmlspecialchars($shiftName); ?> · <?php echo htmlspecialchars($shiftStart); ?>–<?php echo htmlspecialchars($shiftEnd); ?> · Grace <?php echo number_format($effectiveGrace); ?>m
+                                            <?php
+                                                $s1 = '';
+                                                $s2 = '';
+                                                try {
+                                                    $stRaw = (string)($shift['start_time'] ?? '');
+                                                    $enRaw = (string)($shift['end_time'] ?? '');
+                                                    $st = strlen($stRaw) === 5 ? ($stRaw . ':00') : $stRaw;
+                                                    $en = strlen($enRaw) === 5 ? ($enRaw . ':00') : $enRaw;
+                                                    $sd = new DateTimeImmutable($workDate . ' ' . $st, hrBaseTz());
+                                                    $ed = new DateTimeImmutable($workDate . ' ' . $en, hrBaseTz());
+                                                    if ($ed <= $sd) $ed = $ed->modify('+1 day');
+                                                    $s1 = $sd->setTimezone(hrDisplayTz())->format('H:i');
+                                                    $s2 = $ed->setTimezone(hrDisplayTz())->format('H:i');
+                                                } catch (Throwable $e) {
+                                                    $s1 = '';
+                                                    $s2 = '';
+                                                }
+                                            ?>
+                                            <?php echo htmlspecialchars($shiftName); ?> · <?php echo htmlspecialchars(($s1 !== '' && $s2 !== '') ? ($s1 . '–' . $s2) : ($shiftStart . '–' . $shiftEnd)); ?> · Grace <?php echo number_format($effectiveGrace); ?>m
                                         <?php else: ?>
                                             —
                                         <?php endif; ?>

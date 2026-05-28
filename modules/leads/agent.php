@@ -17,6 +17,7 @@ ensureCsrfToken();
 
 // Get current user
 $user = getCurrentUser();
+$canMyLeads = userHasPermission('leads.my');
 
 // Process form submission
 $success = false;
@@ -461,9 +462,9 @@ foreach ($campaigns as $c) {
             <button type="button" class="btn btn-warning shadow-sm" data-bs-toggle="modal" data-bs-target="#dupCheckModal">
                 <i class="bi bi-shield-check me-2"></i>Check Suppression
             </button>
-            <a href="my-leads.php" class="btn btn-outline-secondary shadow-sm">
+            <?php if ($canMyLeads): ?><a href="my-leads.php" class="btn btn-outline-secondary shadow-sm">
                 <i class="bi bi-list-ul me-2"></i>My Leads
-            </a>
+            </a><?php endif; ?>
         </div>
     </div>
 
