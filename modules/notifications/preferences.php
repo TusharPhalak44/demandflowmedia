@@ -28,6 +28,20 @@ $eventTypes = [
     'invoice.created' => 'Invoice created',
     'invoice.status_changed' => 'Invoice status updated',
     'invoice.paid' => 'Invoice marked paid',
+    'task.assigned' => 'Task: assigned',
+    'task.status_changed' => 'Task: status changed',
+    'task.progress' => 'Task: progress updated',
+    'task.comment' => 'Task: comment added',
+    'task.mention' => 'Task: mentioned',
+    'task.file_uploaded' => 'Task: file uploaded',
+    'task.completed' => 'Task: completed',
+    'task.rejected' => 'Task: rejected',
+    'task.overdue' => 'Task: overdue',
+    'task.escalated' => 'Task: escalated',
+    'task.deadline.warning.24h' => 'Task: deadline 24h warning',
+    'task.deadline.warning.12h' => 'Task: deadline 12h warning',
+    'task.deadline.warning.6h' => 'Task: deadline 6h warning',
+    'task.deadline.warning.1h' => 'Task: deadline 1h warning',
 ];
 
 $defaultPrefsRaw = (string)(getAppSetting('notifications.default_prefs', '') ?? '');

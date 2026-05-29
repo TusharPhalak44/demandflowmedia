@@ -3,6 +3,14 @@ DirectoryIndex index.php
 
 Options -Indexes -MultiViews
 
+<IfModule mod_php.c>
+php_value upload_max_filesize 200M
+php_value post_max_size 200M
+php_value max_execution_time 600
+php_value max_input_time 600
+php_value memory_limit 512M
+</IfModule>
+
 <IfModule mod_headers.c>
 Header set X-Content-Type-Options "nosniff"
 Header set X-Frame-Options "SAMEORIGIN"
@@ -38,7 +46,14 @@ RewriteRule ^modules/notifications/?$ modules/notifications/notifications.php [L
 RewriteRule ^modules/productivity/?$ modules/productivity/productivity.php [L,QSA]
 RewriteRule ^modules/revenue/?$ modules/revenue/revenue.php [L,QSA]
 RewriteRule ^modules/sales/?$ modules/sales/dashboard.php [L,QSA]
+RewriteRule ^modules/tasks/?$ modules/tasks/tasks.php [L,QSA]
 RewriteRule ^modules/vendors/?$ modules/vendors/vendors.php [L,QSA]
+
+RewriteRule ^modules/tasks/create/?$ modules/tasks/task-create.php [L,QSA]
+RewriteRule ^modules/tasks/view/?$ modules/tasks/task-view.php [L,QSA]
+RewriteRule ^modules/tasks/reports/?$ modules/tasks/reports.php [L,QSA]
+RewriteRule ^modules/tasks/api/?$ modules/tasks/api.php [L,QSA]
+RewriteRule ^modules/tasks/deadline-run/?$ modules/tasks/deadline-run.php [L,QSA]
 
 RewriteRule ^modules/leads/?$ modules/leads/leads-edit.php [L,QSA]
 RewriteRule ^modules/leads/list/?$ modules/leads/leads-edit.php [L,QSA]

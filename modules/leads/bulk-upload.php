@@ -26,18 +26,19 @@ $norm = function(string $s): string {
 $baseFields = [
     ['key' => 'first_name', 'label' => 'First Name', 'required' => true],
     ['key' => 'last_name', 'label' => 'Last Name', 'required' => true],
-    ['key' => 'job_title', 'label' => 'Job Title', 'required' => false],
-    ['key' => 'email', 'label' => 'Email', 'required' => false],
-    ['key' => 'prospect_linkedin_link', 'label' => 'LinkedIn', 'required' => false],
-    ['key' => 'contact_phone', 'label' => 'Phone', 'required' => false],
-    ['key' => 'industry', 'label' => 'Industry', 'required' => false],
-    ['key' => 'company_linkedin_link', 'label' => 'Company LinkedIn', 'required' => false],
-    ['key' => 'company_name', 'label' => 'Company Name', 'required' => false],
-    ['key' => 'company_website', 'label' => 'Company Website', 'required' => false],
-    ['key' => 'employee_size', 'label' => 'Employee Size', 'required' => false],
-    ['key' => 'country', 'label' => 'Country', 'required' => false],
-    ['key' => 'software_implementation_timeline', 'label' => 'Implementation Timeline', 'required' => false],
-    ['key' => 'lead_comment', 'label' => 'Comment', 'required' => false],
+    ['key' => 'job_title', 'label' => 'Job Title', 'required' => true],
+    ['key' => 'email', 'label' => 'Email', 'required' => true],
+    ['key' => 'prospect_linkedin_link', 'label' => 'LinkedIn', 'required' => true],
+    ['key' => 'contact_phone', 'label' => 'Phone', 'required' => true],
+    ['key' => 'industry', 'label' => 'Industry', 'required' => true],
+    ['key' => 'company_linkedin_link', 'label' => 'Company LinkedIn', 'required' => true],
+    ['key' => 'company_name', 'label' => 'Company Name', 'required' => true],
+    ['key' => 'company_website', 'label' => 'Company Website', 'required' => true],
+    ['key' => 'employee_size', 'label' => 'Employee Size', 'required' => true],
+    ['key' => 'country', 'label' => 'Country', 'required' => true],
+    ['key' => 'software_implementation_timeline', 'label' => 'Implementation Timeline', 'required' => true],
+    ['key' => 'lead_comment', 'label' => 'Comment', 'required' => true],
+    ['key' => 'recording_file', 'label' => 'Recording File (ZIP)', 'required' => false],
 ];
 
 $skipNorms = array_fill_keys(array_map($norm, [
@@ -80,13 +81,36 @@ $getCampaignMeta = function(int $campaignId) use ($conn, $baseFields, $norm, $sk
 
     $form = getFormForCampaign($campaignId);
     $custom = [];
-    if ($form && isset($form['schema']['fields']) && is_array($form['schema']['fields'])) {
+    $schemaFields = ($form && isset($form['schema']['fields']) && is_array($form['schema']['fields'])) ? $form['schema']['fields'] : [];
+    $schemaByKey = [];
+    foreach ($schemaFields as $sf) {
+        if (!is_array($sf)) continue;
+        if (array_key_exists('visible', $sf) && empty($sf['visible'])) continue;
+        $k = (string)($sf['key'] ?? '');
+        if ($k === '') continue;
+        $schemaByKey[$norm($k)] = $sf;
+    }
+
+    $base = [];
+    foreach ($baseFields as $bf) {
+        if (!is_array($bf)) continue;
+        $k = (string)($bf['key'] ?? '');
+        if ($k === '') continue;
+        $req = !empty($bf['required']);
+        $sf = $schemaByKey[$norm($k)] ?? null;
+        if (is_array($sf) && array_key_exists('required', $sf)) $req = !empty($sf['required']);
+        $base[] = ['key' => $k, 'label' => (string)($bf['label'] ?? $k), 'required' => $req];
+    }
+
+    if (!empty($schemaFields)) {
         $seen = [];
-        foreach ($form['schema']['fields'] as $ff) {
+        foreach ($schemaFields as $ff) {
             if (array_key_exists('visible', $ff) && empty($ff['visible'])) continue;
             $k = (string)($ff['key'] ?? '');
             if ($k === '') continue;
             $lbl = (string)($ff['label'] ?? $k);
+            $t = strtolower(trim((string)($ff['type'] ?? 'text')));
+            if ($t === 'file_upload') continue;
             $kn = $norm($k);
             $ln = $norm($lbl);
             if (isset($skipNorms[$kn]) || isset($skipNorms[$ln])) continue;
@@ -118,7 +142,7 @@ $getCampaignMeta = function(int $campaignId) use ($conn, $baseFields, $norm, $sk
         }
     }
 
-    $headers = array_map(fn($f) => $f['key'], $baseFields);
+    $headers = array_map(fn($f) => $f['key'], $base);
     foreach ($custom as $c) $headers[] = $c['key'];
     $headers[] = 'error_reason';
 
@@ -126,7 +150,7 @@ $getCampaignMeta = function(int $campaignId) use ($conn, $baseFields, $norm, $sk
         'ok' => true,
         'campaign' => ['id' => (int)$camp['id'], 'name' => (string)$camp['name']],
         'form' => $form ? ['form_id' => (int)$form['form_id'], 'name' => (string)$form['name']] : null,
-        'base_fields' => $baseFields,
+        'base_fields' => $base,
         'custom_fields' => $custom,
         'template_headers' => array_values(array_unique($headers)),
     ];
@@ -143,6 +167,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'meta') {
 
 if (isset($_GET['action']) && $_GET['action'] === 'template') {
     $campaignId = (int)($_GET['campaign_id'] ?? 0);
+    $format = strtolower(trim((string)($_GET['format'] ?? 'xlsx')));
+    if (!in_array($format, ['xlsx','xls','csv'], true)) $format = 'xlsx';
     $meta = $campaignId > 0 ? $getCampaignMeta($campaignId) : ['ok' => false, 'message' => 'Invalid campaign'];
     if (empty($meta['ok'])) {
         http_response_code(400);
@@ -150,55 +176,46 @@ if (isset($_GET['action']) && $_GET['action'] === 'template') {
         exit;
     }
     ob_clean();
-    header('Content-Type: text/csv; charset=utf-8');
-    $fname = 'bulk_upload_template_campaign_' . (int)$campaignId . '.csv';
-    header('Content-Disposition: attachment; filename="' . $fname . '"');
-    $out = fopen('php://output', 'w');
     $headers = $meta['template_headers'] ?? [];
     $headers = array_values(array_filter($headers, fn($h) => $h !== 'error_reason'));
-    fputcsv($out, $headers);
 
     $idx = array_flip($headers);
     $customFields = $meta['custom_fields'] ?? [];
 
-    $formatOptions = function(array $opts): string {
+    $formatOptionsList = function(array $opts): array {
         $clean = [];
         foreach ($opts as $o) {
             $v = trim((string)$o);
             if ($v !== '') $clean[] = $v;
         }
         $clean = array_values(array_unique($clean));
-        if (empty($clean)) return '';
-        $maxItems = 50;
-        $slice = array_slice($clean, 0, $maxItems);
-        $txt = implode(' | ', $slice);
-        if (count($clean) > $maxItems) $txt .= ' | (+'.(count($clean) - $maxItems).' more)';
-        return $txt;
+        return $clean;
     };
 
-    $accepted = array_fill(0, count($headers), '');
-    $accepted[0] = '#ACCEPTED_VALUES';
-    if (isset($idx['email'])) $accepted[$idx['email']] = 'valid email';
-    if (isset($idx['contact_phone'])) $accepted[$idx['contact_phone']] = 'digits only';
-    if (isset($idx['prospect_linkedin_link'])) $accepted[$idx['prospect_linkedin_link']] = 'URL';
-    if (isset($idx['company_website'])) $accepted[$idx['company_website']] = 'domain or URL';
+    $acceptedInfo = [];
+    if (isset($idx['email'])) $acceptedInfo['email'] = 'valid email';
+    if (isset($idx['contact_phone'])) $acceptedInfo['contact_phone'] = 'digits only';
+    if (isset($idx['prospect_linkedin_link'])) $acceptedInfo['prospect_linkedin_link'] = 'URL';
+    if (isset($idx['company_website'])) $acceptedInfo['company_website'] = 'domain or URL';
+    if (isset($idx['recording_file'])) $acceptedInfo['recording_file'] = 'file name inside ZIP (optional)';
 
     $formForCampaign = getFormForCampaign($campaignId);
     $schema = (array)($formForCampaign['schema'] ?? []);
     $baseOptions = $formForCampaign ? getSelectOptionsByFormSchema($schema, ['industry','employee_size','company_size','country','software_implementation_timeline']) : [];
 
+    $optionMap = [];
     if (isset($idx['industry']) && !empty($baseOptions['industry'])) {
-        $accepted[$idx['industry']] = $formatOptions($baseOptions['industry']);
+        $optionMap['industry'] = $formatOptionsList($baseOptions['industry']);
     }
     if (isset($idx['employee_size'])) {
         $emp = $baseOptions['employee_size'] ?? ($baseOptions['company_size'] ?? []);
-        if (!empty($emp)) $accepted[$idx['employee_size']] = $formatOptions($emp);
+        if (!empty($emp)) $optionMap['employee_size'] = $formatOptionsList($emp);
     }
     if (isset($idx['country']) && !empty($baseOptions['country'])) {
-        $accepted[$idx['country']] = $formatOptions($baseOptions['country']);
+        $optionMap['country'] = $formatOptionsList($baseOptions['country']);
     }
     if (isset($idx['software_implementation_timeline']) && !empty($baseOptions['software_implementation_timeline'])) {
-        $accepted[$idx['software_implementation_timeline']] = $formatOptions($baseOptions['software_implementation_timeline']);
+        $optionMap['software_implementation_timeline'] = $formatOptionsList($baseOptions['software_implementation_timeline']);
     }
 
     foreach ($customFields as $cf) {
@@ -206,10 +223,30 @@ if (isset($_GET['action']) && $_GET['action'] === 'template') {
         if ($k === '' || !isset($idx[$k])) continue;
         $opts = $cf['options'] ?? [];
         if (is_array($opts) && !empty($opts)) {
-            $accepted[$idx[$k]] = $formatOptions($opts);
+            $optionMap[$k] = $formatOptionsList($opts);
         }
     }
-    fputcsv($out, $accepted);
+    $maxOptRows = 0;
+    foreach ($headers as $h) {
+        $h = (string)$h;
+        $cnt = isset($optionMap[$h]) ? count($optionMap[$h]) : 0;
+        if ($cnt > $maxOptRows) $maxOptRows = $cnt;
+    }
+    $maxOptRows = max(1, $maxOptRows);
+    $acceptedRows = [];
+    for ($i = 0; $i < $maxOptRows; $i++) {
+        $r = array_fill(0, count($headers), '');
+        if ($i === 0) $r[0] = '#ACCEPTED_VALUES';
+        foreach ($headers as $ci => $h) {
+            $h = (string)$h;
+            if (isset($optionMap[$h]) && isset($optionMap[$h][$i])) {
+                $r[$ci] = (string)$optionMap[$h][$i];
+            } elseif ($i === 0 && isset($acceptedInfo[$h])) {
+                $r[$ci] = (string)$acceptedInfo[$h];
+            }
+        }
+        $acceptedRows[] = $r;
+    }
 
     $sample = array_fill(0, count($headers), '');
     $set = function(string $k, string $v) use (&$sample, $idx) {
@@ -223,6 +260,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'template') {
     $set('contact_phone', '15550123');
     $set('company_name', 'Example Inc');
     $set('country', 'United States');
+    $set('recording_file', 'LD20260529ABC123.mp3');
 
     foreach ($customFields as $cf) {
         $k = (string)($cf['key'] ?? '');
@@ -232,8 +270,109 @@ if (isset($_GET['action']) && $_GET['action'] === 'template') {
             $sample[$idx[$k]] = (string)$opts[0];
         }
     }
-    fputcsv($out, $sample);
-    fclose($out);
+
+    $rowsOut = array_merge([$headers], $acceptedRows, [$sample]);
+
+    if ($format === 'csv') {
+        header('Content-Type: text/csv; charset=utf-8');
+        $fname = 'bulk_upload_template_campaign_' . (int)$campaignId . '.csv';
+        header('Content-Disposition: attachment; filename="' . $fname . '"');
+        $out = fopen('php://output', 'w');
+        foreach ($rowsOut as $r) fputcsv($out, $r);
+        fclose($out);
+        exit;
+    }
+
+    if ($format === 'xls') {
+        header('Content-Type: application/vnd.ms-excel');
+        $fname = 'bulk_upload_template_campaign_' . (int)$campaignId . '.xls';
+        header('Content-Disposition: attachment; filename="' . $fname . '"');
+        echo "<table border=1>";
+        foreach ($rowsOut as $ri => $r) {
+            echo "<tr>";
+            foreach ($r as $cell) {
+                $tag = $ri === 0 ? 'th' : 'td';
+                echo "<{$tag}>" . htmlspecialchars((string)$cell) . "</{$tag}>";
+            }
+            echo "</tr>";
+        }
+        echo "</table>";
+        exit;
+    }
+
+    $xmlEscape = function(string $s): string {
+        return htmlspecialchars($s, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+    };
+    $colName = function(int $n): string {
+        $s = '';
+        while ($n > 0) {
+            $m = ($n - 1) % 26;
+            $s = chr(65 + $m) . $s;
+            $n = (int)floor(($n - 1) / 26);
+        }
+        return $s;
+    };
+    $sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        . '<sheetData>';
+    foreach ($rowsOut as $ri => $r) {
+        $rowNum = $ri + 1;
+        $sheetXml .= '<row r="' . $rowNum . '">';
+        foreach ($r as $ci => $cell) {
+            $col = $colName($ci + 1);
+            $ref = $col . $rowNum;
+            $val = (string)$cell;
+            $sheetXml .= '<c r="' . $ref . '" t="inlineStr"><is><t>' . $xmlEscape($val) . '</t></is></c>';
+        }
+        $sheetXml .= '</row>';
+    }
+    $sheetXml .= '</sheetData></worksheet>';
+
+    $workbookXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        . '<sheets><sheet name="Template" sheetId="1" r:id="rId1"/></sheets>'
+        . '</workbook>';
+    $relsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+        . '</Relationships>';
+    $wbRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+        . '</Relationships>';
+    $typesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        . '<Default Extension="xml" ContentType="application/xml"/>'
+        . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        . '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        . '</Types>';
+
+    $tmpXlsx = tempnam(sys_get_temp_dir(), 'bulk_tpl_');
+    if ($tmpXlsx === false || !class_exists('ZipArchive')) {
+        http_response_code(500);
+        echo 'XLSX generation not available on this server.';
+        exit;
+    }
+    $zip = new ZipArchive();
+    if ($zip->open($tmpXlsx, ZipArchive::OVERWRITE) !== true) {
+        http_response_code(500);
+        echo 'Unable to create XLSX.';
+        exit;
+    }
+    $zip->addFromString('[Content_Types].xml', $typesXml);
+    $zip->addFromString('_rels/.rels', $relsXml);
+    $zip->addFromString('xl/workbook.xml', $workbookXml);
+    $zip->addFromString('xl/_rels/workbook.xml.rels', $wbRelsXml);
+    $zip->addFromString('xl/worksheets/sheet1.xml', $sheetXml);
+    $zip->close();
+
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    $fname = 'bulk_upload_template_campaign_' . (int)$campaignId . '.xlsx';
+    header('Content-Disposition: attachment; filename="' . $fname . '"');
+    header('Content-Length: ' . (string)filesize($tmpXlsx));
+    readfile($tmpXlsx);
+    @unlink($tmpXlsx);
     exit;
 }
 
@@ -256,18 +395,169 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($meta['ok'])) throw new RuntimeException((string)($meta['message'] ?? 'Campaign not found'));
 
         if (!isset($_FILES['csv_file']) || ($_FILES['csv_file']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            throw new RuntimeException('Please select a valid CSV file.');
+            throw new RuntimeException('Please select a valid upload file (CSV/XLSX/XLS).');
         }
         $fileInfo = pathinfo((string)($_FILES['csv_file']['name'] ?? ''));
         $ext = strtolower((string)($fileInfo['extension'] ?? ''));
-        if ($ext !== 'csv') throw new RuntimeException('Only CSV files are allowed.');
+        if (!in_array($ext, ['csv','xlsx','xls'], true)) throw new RuntimeException('Allowed formats: CSV, XLSX, XLS.');
 
         $tmp = (string)($_FILES['csv_file']['tmp_name'] ?? '');
-        $fh = fopen($tmp, 'r');
-        if (!$fh) throw new RuntimeException('Unable to read uploaded file.');
+        if ($tmp === '' || !is_uploaded_file($tmp)) throw new RuntimeException('Unable to read uploaded file.');
 
-        $rawHeader = fgetcsv($fh);
-        if (!$rawHeader || !is_array($rawHeader)) throw new RuntimeException('CSV header row is missing.');
+        $readCsvRow = function($fh): array|false {
+            $r = fgetcsv($fh);
+            if ($r === false) return false;
+            return is_array($r) ? $r : false;
+        };
+
+        $readHtmlTable = function(string $filePath): array {
+            $data = file_get_contents($filePath);
+            if ($data === false) throw new RuntimeException('Unable to read uploaded file.');
+            $head = substr($data, 0, 8);
+            if ($head !== '' && strlen($head) >= 8 && $head[0] === "\xD0" && $head[1] === "\xCF") {
+                throw new RuntimeException('XLS (binary) is not supported. Please Save As XLSX or CSV and upload again.');
+            }
+            $dom = new DOMDocument();
+            libxml_use_internal_errors(true);
+            $ok = $dom->loadHTML($data);
+            libxml_clear_errors();
+            if (!$ok) throw new RuntimeException('Unable to parse XLS content. Please Save As XLSX or CSV.');
+            $rows = [];
+            $trs = $dom->getElementsByTagName('tr');
+            foreach ($trs as $tr) {
+                $cells = [];
+                foreach ($tr->childNodes as $td) {
+                    if (!($td instanceof DOMElement)) continue;
+                    $tag = strtolower($td->tagName);
+                    if ($tag !== 'td' && $tag !== 'th') continue;
+                    $cells[] = trim(preg_replace('/\s+/', ' ', $td->textContent ?? ''));
+                }
+                if (!empty($cells)) $rows[] = $cells;
+            }
+            return $rows;
+        };
+
+        $parseXlsxRows = function(string $filePath): iterable {
+            if (!class_exists('ZipArchive') || !class_exists('XMLReader')) {
+                throw new RuntimeException('XLSX support is not enabled on this server.');
+            }
+            $zip = new ZipArchive();
+            if ($zip->open($filePath) !== true) throw new RuntimeException('Unable to read XLSX file.');
+            $shared = [];
+            $sharedXml = $zip->getFromName('xl/sharedStrings.xml');
+            if (is_string($sharedXml) && $sharedXml !== '') {
+                $xr = new XMLReader();
+                $xr->XML($sharedXml);
+                $cur = '';
+                while ($xr->read()) {
+                    if ($xr->nodeType === XMLReader::ELEMENT && $xr->name === 't') {
+                        $cur .= $xr->readInnerXML();
+                    }
+                    if ($xr->nodeType === XMLReader::END_ELEMENT && $xr->name === 'si') {
+                        $shared[] = html_entity_decode($cur, ENT_QUOTES | ENT_XML1, 'UTF-8');
+                        $cur = '';
+                    }
+                }
+                $xr->close();
+            }
+            $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+            if (!is_string($sheetXml) || $sheetXml === '') {
+                $zip->close();
+                throw new RuntimeException('XLSX sheet1.xml not found.');
+            }
+            $zip->close();
+
+            $colToIndex = function(string $ref): int {
+                $col = preg_replace('/[^A-Z]/', '', strtoupper($ref));
+                if ($col === '') return 0;
+                $n = 0;
+                for ($i = 0; $i < strlen($col); $i++) {
+                    $n = ($n * 26) + (ord($col[$i]) - 64);
+                }
+                return $n - 1;
+            };
+
+            $xr = new XMLReader();
+            $xr->XML($sheetXml);
+            $row = [];
+            $cellRef = '';
+            $cellType = '';
+            $inV = false;
+            $v = '';
+            $inInline = false;
+            $inline = '';
+            while ($xr->read()) {
+                if ($xr->nodeType === XMLReader::ELEMENT && $xr->name === 'row') {
+                    $row = [];
+                } elseif ($xr->nodeType === XMLReader::ELEMENT && $xr->name === 'c') {
+                    $cellRef = (string)$xr->getAttribute('r');
+                    $cellType = (string)$xr->getAttribute('t');
+                    $inV = false;
+                    $v = '';
+                    $inInline = false;
+                    $inline = '';
+                } elseif ($xr->nodeType === XMLReader::ELEMENT && $xr->name === 'v') {
+                    $inV = true;
+                    $v = '';
+                } elseif ($xr->nodeType === XMLReader::TEXT && $inV) {
+                    $v .= $xr->value;
+                } elseif ($xr->nodeType === XMLReader::END_ELEMENT && $xr->name === 'v') {
+                    $inV = false;
+                } elseif ($xr->nodeType === XMLReader::ELEMENT && $xr->name === 'is') {
+                    $inInline = true;
+                    $inline = '';
+                } elseif ($xr->nodeType === XMLReader::ELEMENT && $inInline && $xr->name === 't') {
+                    $inline .= $xr->readInnerXML();
+                } elseif ($xr->nodeType === XMLReader::END_ELEMENT && $xr->name === 'is') {
+                    $inInline = false;
+                } elseif ($xr->nodeType === XMLReader::END_ELEMENT && $xr->name === 'c') {
+                    $idx = $cellRef !== '' ? $colToIndex($cellRef) : 0;
+                    $val = '';
+                    if ($cellType === 's') {
+                        $si = (int)$v;
+                        $val = isset($shared[$si]) ? (string)$shared[$si] : '';
+                    } elseif ($cellType === 'inlineStr') {
+                        $val = html_entity_decode($inline, ENT_QUOTES | ENT_XML1, 'UTF-8');
+                    } else {
+                        $val = (string)$v;
+                    }
+                    $row[$idx] = trim(preg_replace('/\s+/', ' ', $val));
+                } elseif ($xr->nodeType === XMLReader::END_ELEMENT && $xr->name === 'row') {
+                    if (empty($row)) continue;
+                    $max = max(array_keys($row));
+                    $out = array_fill(0, $max + 1, '');
+                    foreach ($row as $i => $vv) $out[(int)$i] = (string)$vv;
+                    yield $out;
+                }
+            }
+            $xr->close();
+        };
+
+        $getRows = function() use ($ext, $tmp, $readCsvRow, $readHtmlTable, $parseXlsxRows): array {
+            if ($ext === 'csv') {
+                $fh = fopen($tmp, 'r');
+                if (!$fh) throw new RuntimeException('Unable to read uploaded file.');
+                $rows = [];
+                while (($r = $readCsvRow($fh)) !== false) {
+                    if (empty($r)) continue;
+                    $rows[] = $r;
+                }
+                fclose($fh);
+                return $rows;
+            }
+            if ($ext === 'xls') {
+                return $readHtmlTable($tmp);
+            }
+            $rows = [];
+            foreach ($parseXlsxRows($tmp) as $r) $rows[] = $r;
+            return $rows;
+        };
+
+        $rowsAll = $getRows();
+        if (empty($rowsAll)) throw new RuntimeException('Header row is missing.');
+
+        $rawHeader = $rowsAll[0];
+        if (!$rawHeader || !is_array($rawHeader)) throw new RuntimeException('Header row is missing.');
 
         $header = [];
         foreach ($rawHeader as $h) {
@@ -283,10 +573,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $map[$hn] = $i;
         }
 
-        $requiredBase = array_values(array_map(fn($f) => $f['key'], array_filter($meta['base_fields'], fn($f) => !empty($f['required']))));
-        $requiredCustom = [];
-        foreach ($meta['custom_fields'] as $cf) {
-            if (!empty($cf['required'])) $requiredCustom[] = (string)$cf['key'];
+        $expectedCols = [];
+        $requiredKeys = [];
+        foreach (($meta['base_fields'] ?? []) as $bf) {
+            if (!is_array($bf)) continue;
+            $k = (string)($bf['key'] ?? '');
+            if ($k === '') continue;
+            if ($k !== 'recording_file') $expectedCols[] = $k;
+            if (!empty($bf['required']) && $k !== 'recording_file') $requiredKeys[] = $k;
+        }
+        foreach (($meta['custom_fields'] ?? []) as $cf) {
+            if (!is_array($cf)) continue;
+            $k = (string)($cf['key'] ?? '');
+            if ($k === '') continue;
+            $expectedCols[] = $k;
+            if (!empty($cf['required'])) $requiredKeys[] = $k;
         }
 
         $customOptions = [];
@@ -302,14 +603,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $missingCols = [];
-        foreach ($requiredBase as $k) {
+        foreach ($expectedCols as $k) {
             if (!isset($map[$norm($k)])) $missingCols[] = $k;
         }
-        foreach ($requiredCustom as $k) {
-            if (!isset($map[$norm($k)])) $missingCols[] = $k;
-        }
-        if (!empty($missingCols)) {
-            throw new RuntimeException('Missing required columns: ' . implode(', ', $missingCols));
+        if (!empty($missingCols)) throw new RuntimeException('Missing required columns: ' . implode(', ', $missingCols));
+
+        $sanitize = function(?string $v, int $maxLen = 180): string {
+            $v = (string)$v;
+            $v = str_replace(["\0", "\r"], ['', "\n"], $v);
+            $v = preg_replace('/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]/', '', $v);
+            $v = trim($v);
+            $v = preg_replace("/[ \\t]+/", ' ', $v);
+            $v = preg_replace("/\\n{3,}/", "\n\n", $v);
+            if ($maxLen > 0 && strlen($v) > $maxLen) $v = substr($v, 0, $maxLen);
+            return $v;
+        };
+        $safeCsvCell = function($v) use ($sanitize): string {
+            $s = $sanitize((string)$v, 500);
+            $first = $s !== '' ? $s[0] : '';
+            if ($first !== '' && in_array($first, ['=','+','-','@'], true)) $s = "'" . $s;
+            return $s;
+        };
+
+        $zipProvided = isset($_FILES['recordings_zip']) && ($_FILES['recordings_zip']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
+        $zip = null;
+        $zipEntryByName = [];
+        $zipAllowedExt = ['mp3','wav','m4a','aac','ogg'];
+        if ($zipProvided) {
+            if (!class_exists('ZipArchive')) throw new RuntimeException('ZIP support is not enabled on this server.');
+            if (!isset($map['recording_file'])) throw new RuntimeException('When uploading a Recordings ZIP, the CSV must include the column: recording_file');
+            $zipInfo = pathinfo((string)($_FILES['recordings_zip']['name'] ?? ''));
+            $zipExt = strtolower((string)($zipInfo['extension'] ?? ''));
+            if ($zipExt !== 'zip') throw new RuntimeException('Recordings file must be a .zip archive.');
+            $zipTmp = (string)($_FILES['recordings_zip']['tmp_name'] ?? '');
+            $zipObj = new ZipArchive();
+            $openRes = $zipObj->open($zipTmp);
+            if ($openRes !== true) throw new RuntimeException('Unable to read the recordings ZIP.');
+            $zip = $zipObj;
+
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $st = $zip->statIndex($i);
+                if (!is_array($st)) continue;
+                $name = (string)($st['name'] ?? '');
+                if ($name === '' || str_ends_with($name, '/')) continue;
+                $base = basename(str_replace(['\\', "\0"], ['/', ''], $name));
+                $base = trim($base);
+                if ($base === '') continue;
+                $ext = strtolower(pathinfo($base, PATHINFO_EXTENSION));
+                if ($ext === '' || !in_array($ext, $zipAllowedExt, true)) continue;
+                $k = strtolower($base);
+                if (array_key_exists($k, $zipEntryByName)) {
+                    $zipEntryByName[$k] = null;
+                } else {
+                    $zipEntryByName[$k] = $name;
+                }
+            }
         }
 
         $reportDir = __DIR__ . '/../../uploads/bulk_upload_reports';
@@ -340,6 +688,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '');
         $clientId = getCampaignClientId($campaignId);
 
+        $leadFilesDir = __DIR__ . '/../../uploads/lead_files';
+        if (!is_dir($leadFilesDir)) @mkdir($leadFilesDir, 0775, true);
+        $stmtLeadFile = $conn->prepare("INSERT INTO lead_files (lead_id, field_id, file_path, uploaded_at) VALUES (?,?,?,NOW())");
+        if (!$stmtLeadFile) throw new RuntimeException('Failed to prepare file insert.');
+        $stmtUpdateRec = $conn->prepare("UPDATE leads SET recording_path = ?, updated_by = ?, updated_at = NOW() WHERE id = ? LIMIT 1");
+        if (!$stmtUpdateRec) throw new RuntimeException('Failed to prepare recording update.');
+
         $stmtLead = $conn->prepare("
             INSERT INTO leads (
                 lead_id, campaign_id, campaign_name, client_id, agent_id, agent_name,
@@ -353,14 +708,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$stmtLead) throw new RuntimeException('Failed to prepare insert.');
 
         $totalInFile = 0;
-        while (($rCount = fgetcsv($fh)) !== false) {
+        for ($i = 1; $i < count($rowsAll); $i++) {
+            $rCount = $rowsAll[$i];
             if (!is_array($rCount) || empty($rCount)) continue;
             $firstCell = trim((string)($rCount[0] ?? ''));
             if ($firstCell !== '' && str_starts_with($firstCell, '#')) continue;
             $totalInFile++;
         }
-        rewind($fh);
-        fgetcsv($fh);
 
         $emitProgress = function(int $processed, int $total, int $inserted, int $rejected, string $phase) {};
         $streamProgress = !$isAjax;
@@ -455,11 +809,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $emitProgress(0, $totalInFile, 0, 0, 'Reading file…');
         }
 
-        while (($row = fgetcsv($fh)) !== false) {
+        for ($ri = 1; $ri < count($rowsAll); $ri++) {
+            $row = $rowsAll[$ri];
             if (!is_array($row) || empty($row)) continue;
             $firstCell = trim((string)($row[0] ?? ''));
             if ($firstCell !== '' && str_starts_with($firstCell, '#')) continue;
             $processed++;
+            $row = array_pad($row, count($rawHeader), '');
             $get = function(string $key) use ($row, $map, $norm): string {
                 $idx = $map[$norm($key)] ?? null;
                 if ($idx === null) return '';
@@ -473,31 +829,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 return '';
             };
 
-            $firstName = $get('first_name');
-            $lastName = $get('last_name');
-            if ($firstName === '' || $lastName === '') {
-                $rejected++;
-                $r = $row;
-                $r[] = 'Missing required name';
-                fputcsv($badOut, $r);
-                if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
-                continue;
+            foreach ($requiredKeys as $reqKey) {
+                $v = $sanitize($get($reqKey), 500);
+                if ($v === '') {
+                    $rejected++;
+                    $r = array_map($safeCsvCell, $row);
+                    $r[] = 'Missing required field: ' . $reqKey;
+                    fputcsv($badOut, $r);
+                    if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
+                    continue 2;
+                }
             }
 
-            $email = $getAny(['email','email_address','work_email']);
+            if ($zipProvided) {
+                $rf = $sanitize($getAny(['recording_file']), 500);
+                if ($rf === '') {
+                    $rejected++;
+                    $r = array_map($safeCsvCell, $row);
+                    $r[] = 'recording_file is required when uploading Recordings ZIP';
+                    fputcsv($badOut, $r);
+                    if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
+                    continue;
+                }
+            }
+
+            $firstName = $sanitize($get('first_name'), 80);
+            $lastName = $sanitize($get('last_name'), 80);
+
+            $email = $sanitize($getAny(['email','email_address','work_email']), 160);
             if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 $rejected++;
-                $r = $row;
+                $r = array_map($safeCsvCell, $row);
                 $r[] = 'Invalid email address';
                 fputcsv($badOut, $r);
                 if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
                 continue;
             }
-            $company = $getAny(['company_name','company']);
+            $company = $sanitize($getAny(['company_name','company']), 180);
             $dups = findDuplicateLeads($firstName, $lastName, $email, $company, 1, $campaignId);
             if (!empty($dups)) {
                 $rejected++;
-                $r = $row;
+                $r = array_map($safeCsvCell, $row);
                 $r[] = 'Duplicate lead';
                 fputcsv($badOut, $r);
                 if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
@@ -505,21 +877,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $leadCode = 'LD' . date('Ymd') . strtoupper(substr(md5(uniqid('', true)), 0, 6));
-            $jobTitle = $getAny(['job_title','title','designation']) ?: null;
-            $linkedin = $getAny(['prospect_linkedin_link','linkedin_link','linkedin_url','linkedin_profile','prospect_linkedin_url']) ?: null;
-            $phoneRaw = $getAny(['contact_phone','phone']);
+            $jobTitle = $sanitize($getAny(['job_title','title','designation']), 140);
+            $jobTitle = $jobTitle !== '' ? $jobTitle : null;
+            $linkedin = $sanitize($getAny(['prospect_linkedin_link','linkedin_link','linkedin_url','linkedin_profile','prospect_linkedin_url']), 420);
+            $linkedin = $linkedin !== '' ? $linkedin : null;
+            $phoneRaw = $sanitize($getAny(['contact_phone','phone']), 30);
             if ($phoneRaw !== '' && preg_match('/[^0-9]/', $phoneRaw)) {
                 $rejected++;
-                $r = $row;
+                $r = array_map($safeCsvCell, $row);
                 $r[] = 'Invalid contact_phone (digits only)';
                 fputcsv($badOut, $r);
                 if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
                 continue;
             }
             $phone = $phoneRaw !== '' ? $phoneRaw : null;
-            $industry = $getAny(['industry']) ?: null;
-            $companyLinkedin = $getAny(['company_linkedin_link','company_linkedin','company_linkedin_url']) ?: null;
-            $companyWebsiteRaw = $getAny(['company_website','website','domain']);
+            $industry = $sanitize($getAny(['industry']), 120);
+            $industry = $industry !== '' ? $industry : null;
+            $companyLinkedin = $sanitize($getAny(['company_linkedin_link','company_linkedin','company_linkedin_url']), 420);
+            $companyLinkedin = $companyLinkedin !== '' ? $companyLinkedin : null;
+            $companyWebsiteRaw = $sanitize($getAny(['company_website','website','domain']), 220);
             $companyWebsite = $companyWebsiteRaw !== '' ? $normalizeDomain($companyWebsiteRaw) : null;
             $companyDomain = extractDomain((string)$email);
             if ($companyDomain === '' && $companyWebsite) $companyDomain = extractDomain((string)$companyWebsite);
@@ -529,22 +905,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $hit = findClientDomainSuppressionLead($campaignId, (string)$companyDomain, 90);
                 if ($hit) {
                     $rejected++;
-                    $r = $row;
+                    $r = array_map($safeCsvCell, $row);
                     $r[] = 'Client domain cooldown (90 days): ' . (string)($companyDomain);
                     fputcsv($badOut, $r);
                     if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
                     continue;
                 }
             }
-            $employeeSize = $getAny(['employee_size','company_size','company_size_range']) ?: null;
-            $country = $getAny(['country','country_name','location_country']) ?: null;
-            $timelineAnswer = $get('software_implementation_timeline') ?: null;
+            $employeeSize = $sanitize($getAny(['employee_size','company_size','company_size_range']), 120);
+            $employeeSize = $employeeSize !== '' ? $employeeSize : null;
+            $country = $sanitize($getAny(['country','country_name','location_country']), 120);
+            $country = $country !== '' ? $country : null;
+            $timelineAnswer = $sanitize($get('software_implementation_timeline'), 120);
+            $timelineAnswer = $timelineAnswer !== '' ? $timelineAnswer : null;
             $timeline = null;
-            $comment = $get('lead_comment') ?: null;
+            $comment = $sanitize($get('lead_comment'), 600);
+            $comment = $comment !== '' ? $comment : null;
 
             if ($industry !== null && isset($strictSelectOptions['industry']) && !valueInAllowedOptions($industry, $strictSelectOptions['industry'])) {
                 $rejected++;
-                $r = $row;
+                $r = array_map($safeCsvCell, $row);
                 $r[] = 'Invalid industry. Allowed: ' . implode(' | ', $strictSelectOptions['industry']);
                 fputcsv($badOut, $r);
                 if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
@@ -553,7 +933,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $empAllowed = $strictSelectOptions['employee_size'] ?? ($strictSelectOptions['company_size'] ?? null);
             if ($employeeSize !== null && is_array($empAllowed) && !empty($empAllowed) && !valueInAllowedOptions($employeeSize, $empAllowed)) {
                 $rejected++;
-                $r = $row;
+                $r = array_map($safeCsvCell, $row);
                 $r[] = 'Invalid employee_size. Allowed: ' . implode(' | ', $empAllowed);
                 fputcsv($badOut, $r);
                 if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
@@ -561,7 +941,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if ($country !== null && isset($strictSelectOptions['country']) && !valueInAllowedOptions($country, $strictSelectOptions['country'])) {
                 $rejected++;
-                $r = $row;
+                $r = array_map($safeCsvCell, $row);
                 $r[] = 'Invalid country. Allowed: ' . implode(' | ', $strictSelectOptions['country']);
                 fputcsv($badOut, $r);
                 if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
@@ -569,7 +949,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if ($timelineAnswer !== null && isset($strictSelectOptions['software_implementation_timeline']) && !valueInAllowedOptions($timelineAnswer, $strictSelectOptions['software_implementation_timeline'])) {
                 $rejected++;
-                $r = $row;
+                $r = array_map($safeCsvCell, $row);
                 $r[] = 'Invalid software_implementation_timeline. Allowed: ' . implode(' | ', $strictSelectOptions['software_implementation_timeline']);
                 fputcsv($badOut, $r);
                 if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
@@ -577,6 +957,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $recording = null;
+            $recordingNames = [];
+            $recRaw = $getAny(['recording_file']);
+            if ($recRaw !== '') {
+                $parts = str_contains($recRaw, '|') ? explode('|', $recRaw) : explode(',', $recRaw);
+                $parts = array_values(array_filter(array_map(fn($x) => trim((string)$x), $parts), fn($x) => $x !== ''));
+                foreach ($parts as $p) {
+                    $b = basename(str_replace(['\\', "\0"], ['/', ''], $p));
+                    $b = trim($b);
+                    if ($b !== '') $recordingNames[strtolower($b)] = $b;
+                }
+                $recordingNames = array_values($recordingNames);
+            }
+
+            if (!empty($recordingNames) && !$zipProvided) {
+                $rejected++;
+                $r = array_map($safeCsvCell, $row);
+                $r[] = 'recording_file provided but no Recordings ZIP uploaded';
+                fputcsv($badOut, $r);
+                if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
+                continue;
+            }
+            if ($zipProvided && !empty($recordingNames)) {
+                foreach ($recordingNames as $fn) {
+                    $ext = strtolower(pathinfo($fn, PATHINFO_EXTENSION));
+                    if ($ext === '' || !in_array($ext, $zipAllowedExt, true)) {
+                        $rejected++;
+                        $r = array_map($safeCsvCell, $row);
+                        $r[] = 'Invalid recording extension: ' . $fn;
+                        fputcsv($badOut, $r);
+                        if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
+                        continue 2;
+                    }
+                    $key = strtolower($fn);
+                    if (!array_key_exists($key, $zipEntryByName)) {
+                        $rejected++;
+                        $r = array_map($safeCsvCell, $row);
+                        $r[] = 'Recording not found in ZIP: ' . $fn;
+                        fputcsv($badOut, $r);
+                        if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
+                        continue 2;
+                    }
+                    if ($zipEntryByName[$key] === null) {
+                        $rejected++;
+                        $r = array_map($safeCsvCell, $row);
+                        $r[] = 'Duplicate recording name in ZIP: ' . $fn;
+                        fputcsv($badOut, $r);
+                        if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
+                        continue 2;
+                    }
+                }
+            }
             $formDone = 'No';
             $formFilledTime = null;
 
@@ -584,12 +1015,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($meta['custom_fields'] as $cf) {
                 $k = (string)($cf['key'] ?? '');
                 if ($k === '') continue;
-                $v = $get($k);
+                $v = $sanitize($get($k), 500);
                 if ($v === '') continue;
                 $type = (string)($customTypes[$k] ?? ($cf['type'] ?? 'text'));
                 if (($type === 'number' || $type === 'numeric') && preg_match('/[^0-9]/', $v)) {
                     $rejected++;
-                    $r = $row;
+                    $r = array_map($safeCsvCell, $row);
                     $r[] = 'Invalid value for ' . $k . ' (digits only)';
                     fputcsv($badOut, $r);
                     if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
@@ -603,7 +1034,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     if (!$ok) {
                         $rejected++;
-                        $r = $row;
+                        $r = array_map($safeCsvCell, $row);
                         $r[] = 'Invalid value for ' . $k . '. Allowed: ' . implode(' | ', $allowed);
                         fputcsv($badOut, $r);
                         if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
@@ -611,16 +1042,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 $customData[$k] = $v;
-            }
-            foreach ($requiredCustom as $rk) {
-                if (!array_key_exists($rk, $customData)) {
-                    $rejected++;
-                    $r = $row;
-                    $r[] = 'Missing required form field: ' . $rk;
-                    fputcsv($badOut, $r);
-                    if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
-                    continue 2;
-                }
             }
             if ($formId > 0 && !empty($customData)) {
                 $formDone = 'Yes';
@@ -644,7 +1065,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($key === '') continue;
                 $type = strtolower(trim((string)($sf['type'] ?? 'text')));
                 if ($type === 'file_upload') continue;
-                $raw = $get($key);
+                $raw = $sanitize($get($key), 500);
                 if ($raw === '') continue;
                 if ($type === 'checkbox') {
                     $arr = $parseMulti($raw);
@@ -681,13 +1102,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             if (!$stmtLead->execute()) {
                 $rejected++;
-                $r = $row;
+                $r = array_map($safeCsvCell, $row);
                 $r[] = 'DB insert failed';
                 fputcsv($badOut, $r);
                 if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
                 continue;
             }
             $leadDbId = (int)$conn->insert_id;
+            $recordingPaths = [];
+            $primaryRecordingRel = '';
+            if ($zipProvided && !empty($recordingNames) && $zip instanceof ZipArchive) {
+                $fieldId = 'call_recording';
+                foreach ($recordingNames as $fn) {
+                    $key = strtolower($fn);
+                    $entry = $zipEntryByName[$key] ?? null;
+                    if (!is_string($entry) || $entry === '') {
+                        if (function_exists('deleteSingleLead')) deleteSingleLead($leadDbId, true);
+                        $rejected++;
+                        $r = array_map($safeCsvCell, $row);
+                        $r[] = 'Recording not found in ZIP: ' . $fn;
+                        fputcsv($badOut, $r);
+                        if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
+                        continue 2;
+                    }
+
+                    $ext = strtolower(pathinfo($fn, PATHINFO_EXTENSION));
+                    $safeBase = preg_replace('/[^a-zA-Z0-9._-]+/', '_', pathinfo($fn, PATHINFO_FILENAME));
+                    $safeBase = $safeBase !== '' ? $safeBase : 'recording';
+                    $destName = 'L' . $leadDbId . '_' . $fieldId . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(6)) . '_' . $safeBase . ($ext !== '' ? ('.' . $ext) : '');
+                    $destAbs = $leadFilesDir . '/' . $destName;
+                    $rel = 'uploads/lead_files/' . $destName;
+
+                    $in = $zip->getStream($entry);
+                    if ($in === false) {
+                        if (function_exists('deleteSingleLead')) deleteSingleLead($leadDbId, true);
+                        $rejected++;
+                        $r = array_map($safeCsvCell, $row);
+                        $r[] = 'Unable to read recording from ZIP: ' . $fn;
+                        fputcsv($badOut, $r);
+                        if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
+                        continue 2;
+                    }
+                    $out = fopen($destAbs, 'wb');
+                    if ($out === false) {
+                        @fclose($in);
+                        if (function_exists('deleteSingleLead')) deleteSingleLead($leadDbId, true);
+                        $rejected++;
+                        $r = array_map($safeCsvCell, $row);
+                        $r[] = 'Unable to write recording file: ' . $fn;
+                        fputcsv($badOut, $r);
+                        if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
+                        continue 2;
+                    }
+                    stream_copy_to_stream($in, $out);
+                    fclose($in);
+                    fclose($out);
+
+                    $stmtLeadFile->bind_param('iss', $leadDbId, $fieldId, $rel);
+                    if (!$stmtLeadFile->execute()) {
+                        @unlink($destAbs);
+                        if (function_exists('deleteSingleLead')) deleteSingleLead($leadDbId, true);
+                        $rejected++;
+                        $r = array_map($safeCsvCell, $row);
+                        $r[] = 'DB save failed for recording: ' . $fn;
+                        fputcsv($badOut, $r);
+                        if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
+                        continue 2;
+                    }
+                    $recordingPaths[] = $rel;
+                    if ($primaryRecordingRel === '') $primaryRecordingRel = $rel;
+                }
+                if ($primaryRecordingRel !== '') {
+                    $stmtUpdateRec->bind_param('sii', $primaryRecordingRel, $userId, $leadDbId);
+                    $stmtUpdateRec->execute();
+                    logLeadActivity($leadDbId, $userId, 'call_recordings_uploaded', ['count' => count($recordingPaths), 'source' => 'bulk_upload']);
+                }
+            }
+
             $inserted++;
             if ($streamProgress && ($processed % 10 === 0 || $processed === $totalInFile)) $emitProgress($processed, $totalInFile, $inserted, $rejected, 'Processing…');
 
@@ -702,13 +1193,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Sync to campaign-specific lead table
             syncLeadToCampaignTable($leadDbId);
 
-            fputcsv($okOut, array_merge($row, [(string)$leadDbId, $leadCode]));
+            fputcsv($okOut, array_merge(array_map($safeCsvCell, $row), [(string)$leadDbId, $safeCsvCell($leadCode)]));
         }
 
-        fclose($fh);
         fclose($okOut);
         fclose($badOut);
         $stmtLead->close();
+        if (isset($stmtLeadFile) && $stmtLeadFile) $stmtLeadFile->close();
+        if (isset($stmtUpdateRec) && $stmtUpdateRec) $stmtUpdateRec->close();
+        if (isset($zip) && $zip instanceof ZipArchive) $zip->close();
 
         $okUrl = '../../uploads/bulk_upload_reports/' . basename($okPath);
         $badUrl = '../../uploads/bulk_upload_reports/' . basename($badPath);
@@ -823,7 +1316,10 @@ ob_end_clean();
 <?php $pageTitle = 'Bulk Upload'; include __DIR__ . '/../../includes/layout/app_start.php'; ?>
 <div class="container-fluid px-0">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="h3 mb-0">Bulk Upload Leads</h2>
+        <div>
+            <h2 class="h3 mb-0">Bulk Upload Leads</h2>
+            <div class="text-muted small">All campaign fields are mandatory for every uploaded row.</div>
+        </div>
         <a href="leads-purge.php" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Delete All Leads</a>
     </div>
 
@@ -850,14 +1346,27 @@ ob_end_clean();
                                 </select>
                             </div>
                             <div class="col-md-4 d-grid">
-                                <a id="templateBtn" class="btn btn-outline-secondary btn-sm disabled" href="#">
-                                    <i class="bi bi-download me-1"></i>Download Template (CSV)
-                                </a>
+                                <div class="btn-group">
+                                    <a id="templateBtn" class="btn btn-outline-secondary btn-sm disabled" href="#"><i class="bi bi-download me-1"></i>Download Template</a>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="visually-hidden">Toggle Dropdown</span>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" id="tplXlsx" href="#">XLSX (Recommended)</a></li>
+                                        <li><a class="dropdown-item" id="tplXls" href="#">XLS</a></li>
+                                        <li><a class="dropdown-item" id="tplCsv" href="#">CSV</a></li>
+                                    </ul>
+                                </div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label small text-muted">CSV File</label>
-                                <input type="file" class="form-control form-control-sm" name="csv_file" id="csv_file" accept=".csv" required>
-                                <div class="text-muted small mt-1">Excel supported: open the CSV in Excel.</div>
+                                <label class="form-label small text-muted">Upload File (CSV / XLSX / XLS)</label>
+                                <input type="file" class="form-control form-control-sm" name="csv_file" id="csv_file" accept=".csv,.xlsx,.xls" required>
+                                <div class="text-muted small mt-1">XLSX is recommended for large option lists.</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small text-muted">Call Recordings ZIP (Optional)</label>
+                                <input type="file" class="form-control form-control-sm" name="recordings_zip" id="recordings_zip" accept=".zip">
+                                <div class="text-muted small mt-1">If you upload a ZIP, put the exact file name in the CSV column <span class="fw-semibold">recording_file</span> to auto-link the recording to that lead.</div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label small text-muted">Feedback Mode</label>
@@ -886,67 +1395,13 @@ ob_end_clean();
 
         <div class="col-lg-5">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-light fw-semibold">Expected Columns</div>
+                <div class="card-header bg-light fw-semibold">Campaign Fields</div>
                 <div class="card-body">
-                    <div class="text-muted small mb-2">Select a campaign to see its form fields.</div>
+                    <div class="text-muted small mb-2">Select a campaign to view required fields. If you upload a recordings ZIP, <span class="fw-semibold">recording_file</span> becomes required.</div>
                     <div id="expectedCols"></div>
                 </div>
             </div>
         </div>
-    </div>
-    <div class="row g-3 mt-2">
-        <?php if (!isVendor()): ?>
-            <div class="col-lg-5">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-light fw-semibold">Sales Duplicate Check</div>
-                    <div class="card-body">
-                        <input type="hidden" id="dup_csrf" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <label class="form-label small text-muted">Company</label>
-                                <input type="text" class="form-control form-control-sm" id="dup_company">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small text-muted">Email</label>
-                                <input type="email" class="form-control form-control-sm" id="dup_email">
-                            </div>
-                            <div class="col-md-12">
-                                <label class="form-label small text-muted">LinkedIn URL</label>
-                                <input type="url" class="form-control form-control-sm" id="dup_linkedin" placeholder="https://www.linkedin.com/in/... or company page">
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-check mt-1">
-                                    <input class="form-check-input" type="checkbox" id="auditAll">
-                                    <label class="form-check-label small text-muted" for="auditAll">All departments audit</label>
-                                </div>
-                            </div>
-                            <div class="col-12 d-flex justify-content-end">
-                                <button class="btn btn-outline-primary btn-sm" id="runSalesDupCheck"><i class="bi bi-search me-1"></i>Check Sales Duplicates</button>
-                            </div>
-                        </div>
-                        <div id="salesDupResult" class="mt-3" style="display:none;">
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Source</th>
-                                            <th>Company</th>
-                                            <th>Status</th>
-                                            <th>Website</th>
-                                            <th>Email</th>
-                                            <th>LinkedIn</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="salesDupBody"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div id="salesDupEmpty" class="text-muted small mt-3" style="display:none;">No duplicates found.</div>
-                        <div id="salesDupError" class="text-danger small mt-3" style="display:none;">Unable to check duplicates.</div>
-                    </div>
-                </div>
-            </div>
-        <?php endif; ?>
     </div>
 </div>
 
@@ -999,7 +1454,14 @@ ob_end_clean();
         }
 
         templateBtn.classList.remove('disabled');
-        templateBtn.href = pagePath + '?action=template&campaign_id=' + encodeURIComponent(campaignId);
+        const base = pagePath + '?action=template&campaign_id=' + encodeURIComponent(campaignId);
+        const tplXlsx = document.getElementById('tplXlsx');
+        const tplXls = document.getElementById('tplXls');
+        const tplCsv = document.getElementById('tplCsv');
+        templateBtn.href = base + '&format=xlsx';
+        if (tplXlsx) tplXlsx.href = base + '&format=xlsx';
+        if (tplXls) tplXls.href = base + '&format=xls';
+        if (tplCsv) tplCsv.href = base + '&format=csv';
 
         let html = '';
         html += '<div class="fw-semibold mb-2">Campaign Fields</div>';
@@ -1046,7 +1508,7 @@ ob_end_clean();
         const file = fileInput?.files?.[0];
         if (!file) {
             e.preventDefault();
-            statusDiv.innerHTML = '<div class="alert alert-danger">Select a CSV file.</div>';
+            statusDiv.innerHTML = '<div class="alert alert-danger">Select a file (CSV/XLSX/XLS).</div>';
             return;
         }
 
@@ -1144,49 +1606,6 @@ ob_end_clean();
         xhr.send(fd);
     });
 
-    document.getElementById('runSalesDupCheck')?.addEventListener('click', async function(){
-      const company = document.getElementById('dup_company').value.trim();
-      const email = document.getElementById('dup_email').value.trim();
-      const li = document.getElementById('dup_linkedin').value.trim();
-      const csrf = document.getElementById('dup_csrf').value;
-      const auditAll = document.getElementById('auditAll')?.checked;
-      const qs = new URLSearchParams({ company_name: company, contact_email: email, linkedin_url: li }).toString();
-      const resSales = await fetch('../sales/check-duplicate?type=sales&'+qs, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' }).then(r=>r.json()).catch(()=>null);
-      let resClients = null;
-      let resLeads = null;
-      if (auditAll) {
-        resClients = await fetch('../sales/check-duplicate?type=client&'+qs, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' }).then(r=>r.json()).catch(()=>null);
-        const payload = { csrf_token: csrf, first_name: '', last_name: '', email: email, company_name: company, campaign_id: 0 };
-        resLeads = await fetch('../leads/check_duplicates', { method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, credentials: 'same-origin', body: JSON.stringify(payload) }).then(r=>r.json()).catch(()=>null);
-      }
-      const body = document.getElementById('salesDupBody');
-      const wrap = document.getElementById('salesDupResult');
-      const empty = document.getElementById('salesDupEmpty');
-      const errEl = document.getElementById('salesDupError');
-      body.innerHTML = ''; wrap.style.display = 'none'; empty.style.display = 'none'; errEl.style.display = 'none';
-      const rowsSales = (resSales && resSales.ok && Array.isArray(resSales.matches)) ? resSales.matches : [];
-      const rowsClients = (resClients && resClients.ok && Array.isArray(resClients.matches)) ? resClients.matches : [];
-      const rowsLeads = (resLeads && resLeads.ok && Array.isArray(resLeads.matches)) ? resLeads.matches : [];
-      const totalRows = rowsSales.length + rowsClients.length + rowsLeads.length;
-      if (!totalRows) {
-        if (!(resSales && resSales.ok) && auditAll && (!resClients || !resLeads)) { errEl.style.display = 'block'; return; }
-        empty.style.display = 'block'; return;
-      }
-      function addRow(src, d){
-        const tr = document.createElement('tr');
-        tr.innerHTML = '<td class=\"small text-muted\">'+escapeHtml(src)+'</td>'
-          + '<td class=\"fw-semibold\">'+escapeHtml(d.company_name||d.name||'')+'</td>'
-          + '<td><span class=\"badge bg-secondary\">'+escapeHtml(d.status||'')+'</span></td>'
-          + '<td class=\"small text-muted\">'+escapeHtml(d.website||'')+'</td>'
-          + '<td class=\"small text-muted\">'+escapeHtml(d.contact_email||d.email||'')+'</td>'
-          + '<td class=\"small\"><a href=\"'+escapeHtml(d.linkedin_url||d.linkedin_link||'#')+'\" target=\"_blank\" rel=\"noopener\">'+((d.linkedin_url||d.linkedin_link)?'Open':'')+'</a></td>';
-        body.appendChild(tr);
-      }
-      rowsSales.forEach(d => addRow('Sales', d));
-      rowsClients.forEach(d => addRow('Clients', d));
-      rowsLeads.forEach(d => addRow('Leads', d));
-      wrap.style.display = 'block';
-    });
 })();
 </script>
 

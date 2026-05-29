@@ -161,6 +161,25 @@
     <?php endif; ?>
   <?php endif; ?>
 
+  <?php if ($isInternal && $canAny(['tasks.access','tasks.create','tasks.manage','tasks.reports'])): ?>
+    <?php $tasksActive = in_array($layoutPage, ['tasks.php','task-create.php','task-view.php','reports.php'], true); ?>
+    <a class="sidebar-link sidebar-toggle <?php echo $tasksActive ? 'active' : ''; ?>" data-bs-toggle="collapse" href="#navTasks" role="button" aria-expanded="<?php echo $tasksActive ? 'true' : 'false'; ?>">
+      <span class="sidebar-title"><i class="bi bi-kanban"></i><span>Tasks</span></span>
+      <i class="bi bi-chevron-down sidebar-chevron"></i>
+    </a>
+    <div class="collapse sidebar-submenu <?php echo $tasksActive ? 'show' : ''; ?>" id="navTasks">
+      <?php if ($canPerm('tasks.access')): ?>
+        <a class="sidebar-sublink <?php echo $layoutPage === 'tasks.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/tasks"><i class="bi bi-list-task"></i><span>Dashboard</span></a>
+      <?php endif; ?>
+      <?php if ($canPerm('tasks.create')): ?>
+        <a class="sidebar-sublink <?php echo $layoutPage === 'task-create.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/tasks/create"><i class="bi bi-plus-circle"></i><span>Create Task</span></a>
+      <?php endif; ?>
+      <?php if ($canPerm('tasks.reports')): ?>
+        <a class="sidebar-sublink <?php echo $layoutPage === 'reports.php' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($m); ?>/tasks/reports"><i class="bi bi-bar-chart"></i><span>Reports</span></a>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
+
   <?php if ($isInternal && (isQA() || isAdmin() || $canPerm('qa.access'))): ?>
     <?php if ($canPerm('qa.access')): ?>
     <?php $qaActive = in_array($layoutPage, ['qa-dashboard.php','qa-audit.php','qa-request-assignment.php','qa-assign.php','dashboard','audit','request','assignments','export.php'], true); ?>

@@ -450,7 +450,10 @@ $canAssign = hasRole(['admin','qa_director','qa_manager']);
                       <?php endif; ?>
                       <option value="Qualified">Qualified</option>
                       <option value="Disqualified">Disqualified</option>
-                      <option value="Rework Needed">Needs Correction</option>
+                      <option value="Rework Needed">Rework Needed</option>
+                      <option value="In Progress">In Progress</option>
+                       <option value="Duplicate/Supp">Duplicate/Supp</option>
+                       <option value="Rectified">Rectified</option>
                     </select>
                   </div>
                   <div class="col-md-6">

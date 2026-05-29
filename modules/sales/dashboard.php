@@ -7,6 +7,10 @@ ensureCsrfToken();
 $conn = getDbConnection();
 $user = getCurrentUser();
 $userId = (int)($user['id'] ?? 0);
+$taskWidget = function_exists('getMyTaskWidgetCounts') ? getMyTaskWidgetCounts($userId) : ['pending' => 0, 'due_today' => 0, 'overdue' => 0];
+$canTasks = function_exists('userHasPermission')
+  ? (userHasPermission('tasks.access') || userHasPermission('tasks.create') || userHasPermission('tasks.assign') || userHasPermission('tasks.manage') || userHasPermission('tasks.override') || userHasPermission('tasks.reports'))
+  : true;
 $isSdr = isSDR();
 $isManager = isSalesManager();
 $isDirector = isSalesDirector();
@@ -217,6 +221,22 @@ if ($search !== '') {
         </div>
       </div>
     </div>
+    <?php if ($canTasks): ?>
+      <div class="col-md-4 col-lg-3">
+        <a class="text-decoration-none" href="<?php echo htmlspecialchars(appBasePath() . '/modules/tasks'); ?>">
+          <div class="card h-100 border-primary-subtle">
+            <div class="card-body">
+              <div class="text-muted small">My Tasks</div>
+              <div class="fs-5 fw-semibold">
+                <span class="me-2">Pending: <?php echo (int)($taskWidget['pending'] ?? 0); ?></span>
+                <span class="me-2">Due: <?php echo (int)($taskWidget['due_today'] ?? 0); ?></span>
+                <span class="text-danger">Overdue: <?php echo (int)($taskWidget['overdue'] ?? 0); ?></span>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    <?php endif; ?>
     <div class="col-md-4 col-lg-3">
       <a class="text-decoration-none" href="leads.php?<?php echo htmlspecialchars(http_build_query(['due' => 'Overdue'])); ?>">
         <div class="card h-100 border-danger-subtle">

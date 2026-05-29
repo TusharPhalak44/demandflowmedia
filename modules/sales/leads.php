@@ -128,7 +128,70 @@ $statusOptions = array_values(array_filter($statuses, fn($s) => $s !== 'All'));
       <h3 class="mb-1">Sales Pipeline</h3>
       <div class="text-muted small"><?php echo $isSdr ? 'Your prospects only' : 'Team prospects'; ?></div>
     </div>
-    <a href="lead-create.php" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle me-1"></i>New Prospect</a>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-outline-primary btn-sm" id="openSalesDupModal"><i class="bi bi-search me-1"></i>Check Duplicate</button>
+      <a href="lead-create.php" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle me-1"></i>New Prospect</a>
+    </div>
+  </div>
+
+  <div class="modal fade" id="salesDupModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Sales Duplicate Check</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="sales_dup_csrf" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label small text-muted">Company</label>
+              <input type="text" class="form-control form-control-sm" id="sales_dup_company">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small text-muted">Email</label>
+              <input type="email" class="form-control form-control-sm" id="sales_dup_email">
+            </div>
+            <div class="col-12">
+              <label class="form-label small text-muted">LinkedIn URL</label>
+              <input type="url" class="form-control form-control-sm" id="sales_dup_linkedin" placeholder="https://www.linkedin.com/in/... or company page">
+            </div>
+            <div class="col-md-6">
+              <div class="form-check mt-1">
+                <input class="form-check-input" type="checkbox" id="sales_dup_audit_all">
+                <label class="form-check-label small text-muted" for="sales_dup_audit_all">All departments audit</label>
+              </div>
+            </div>
+            <div class="col-12 d-flex justify-content-end">
+              <button type="button" class="btn btn-primary btn-sm" id="runSalesDupCheck"><i class="bi bi-search me-1"></i>Check</button>
+            </div>
+          </div>
+
+          <div id="salesDupResult" class="mt-3" style="display:none;">
+            <div class="table-responsive">
+              <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Source</th>
+                    <th>Company</th>
+                    <th>Status</th>
+                    <th>Website</th>
+                    <th>Email</th>
+                    <th>LinkedIn</th>
+                  </tr>
+                </thead>
+                <tbody id="salesDupBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="salesDupEmpty" class="text-muted small mt-3" style="display:none;">No duplicates found.</div>
+          <div id="salesDupError" class="text-danger small mt-3" style="display:none;">Unable to check duplicates.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="card mb-3">
@@ -344,6 +407,78 @@ $statusOptions = array_values(array_filter($statuses, fn($s) => $s !== 'All'));
 <?php include __DIR__ . '/../../includes/layout/app_end.php'; ?>
 
 <script>
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, function(s){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[s] || s;
+  });
+}
+
+const salesDupModalEl = document.getElementById('salesDupModal');
+const openSalesDupModalBtn = document.getElementById('openSalesDupModal');
+const salesDupBody = document.getElementById('salesDupBody');
+const salesDupWrap = document.getElementById('salesDupResult');
+const salesDupEmpty = document.getElementById('salesDupEmpty');
+const salesDupError = document.getElementById('salesDupError');
+const runSalesDupBtn = document.getElementById('runSalesDupCheck');
+
+function resetSalesDupUi() {
+  if (salesDupBody) salesDupBody.innerHTML = '';
+  if (salesDupWrap) salesDupWrap.style.display = 'none';
+  if (salesDupEmpty) salesDupEmpty.style.display = 'none';
+  if (salesDupError) salesDupError.style.display = 'none';
+}
+
+openSalesDupModalBtn?.addEventListener('click', function(){
+  resetSalesDupUi();
+  bootstrap.Modal.getOrCreateInstance(salesDupModalEl).show();
+  setTimeout(() => document.getElementById('sales_dup_company')?.focus(), 150);
+});
+
+runSalesDupBtn?.addEventListener('click', async function(){
+  const company = (document.getElementById('sales_dup_company')?.value || '').trim();
+  const email = (document.getElementById('sales_dup_email')?.value || '').trim();
+  const li = (document.getElementById('sales_dup_linkedin')?.value || '').trim();
+  const csrf = (document.getElementById('sales_dup_csrf')?.value || '').trim();
+  const auditAll = !!document.getElementById('sales_dup_audit_all')?.checked;
+
+  resetSalesDupUi();
+  if (!company && !email && !li) { salesDupError.style.display = 'block'; salesDupError.textContent = 'Enter at least one field.'; return; }
+
+  const qs = new URLSearchParams({ company_name: company, contact_email: email, linkedin_url: li }).toString();
+  const resSales = await fetch('check-duplicate?type=sales&' + qs, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' }).then(r=>r.json()).catch(()=>null);
+  let resClients = null;
+  let resLeads = null;
+  if (auditAll) {
+    resClients = await fetch('check-duplicate?type=client&' + qs, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' }).then(r=>r.json()).catch(()=>null);
+    const payload = { csrf_token: csrf, first_name: '', last_name: '', email: email, company_name: company, campaign_id: 0 };
+    resLeads = await fetch('../leads/check_duplicates', { method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, credentials: 'same-origin', body: JSON.stringify(payload) }).then(r=>r.json()).catch(()=>null);
+  }
+
+  const rowsSales = (resSales && resSales.ok && Array.isArray(resSales.matches)) ? resSales.matches : [];
+  const rowsClients = (resClients && resClients.ok && Array.isArray(resClients.matches)) ? resClients.matches : [];
+  const rowsLeads = (resLeads && resLeads.ok && Array.isArray(resLeads.matches)) ? resLeads.matches : [];
+  const totalRows = rowsSales.length + rowsClients.length + rowsLeads.length;
+  if (!totalRows) {
+    if (!(resSales && resSales.ok) && auditAll && (!resClients || !resLeads)) { salesDupError.style.display = 'block'; return; }
+    salesDupEmpty.style.display = 'block'; return;
+  }
+
+  function addRow(src, d){
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td class="small text-muted">'+escapeHtml(src)+'</td>'
+      + '<td class="fw-semibold">'+escapeHtml(d.company_name||d.name||'')+'</td>'
+      + '<td><span class="badge bg-secondary">'+escapeHtml(d.status||'')+'</span></td>'
+      + '<td class="small text-muted">'+escapeHtml(d.website||'')+'</td>'
+      + '<td class="small text-muted">'+escapeHtml(d.contact_email||d.email||'')+'</td>'
+      + '<td class="small"><a href="'+escapeHtml(d.linkedin_url||d.linkedin_link||'#')+'" target="_blank" rel="noopener">'+((d.linkedin_url||d.linkedin_link)?'Open':'')+'</a></td>';
+    salesDupBody.appendChild(tr);
+  }
+  rowsSales.forEach(d => addRow('Sales', d));
+  rowsClients.forEach(d => addRow('Clients', d));
+  rowsLeads.forEach(d => addRow('Leads', d));
+  salesDupWrap.style.display = 'block';
+});
+
 const quickLogToken = '<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>';
 const quickLogModalEl = document.getElementById('quickLogModal');
 const quickLogForm = document.getElementById('quickLogForm');

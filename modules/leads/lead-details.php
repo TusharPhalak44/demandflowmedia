@@ -147,6 +147,17 @@ if ($canSeeTimeline && $lid > 0) {
     }
 }
 
+$recordingFileRows = [];
+if ($lid > 0) {
+    $stmt = $conn->prepare("SELECT file_path, uploaded_at FROM lead_files WHERE lead_id = ? AND field_id = 'call_recording' ORDER BY uploaded_at ASC, id ASC");
+    if ($stmt) {
+        $stmt->bind_param('i', $lid);
+        $stmt->execute();
+        $recordingFileRows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+        $stmt->close();
+    }
+}
+
 $qaHistory = [];
 if (isQA() || isAdmin()) {
     $conn = getDbConnection();
@@ -553,14 +564,34 @@ foreach ($schemaFields as $f) {
                             </div>
                         </div>
                         <div class="col-12">
-                            <div class="text-muted small">Recording</div>
-                            <?php $recUrl = $toUrl($recording); ?>
-                            <?php if ($recUrl !== ''): ?>
-                                <audio controls class="w-100" style="height: 34px;">
-                                    <source src="<?php echo htmlspecialchars($recUrl); ?>" type="audio/mpeg">
-                                </audio>
-                                <div class="mt-2">
-                                    <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars($recUrl); ?>" download><i class="bi bi-download me-1"></i>Download</a>
+                            <div id="recordings"></div>
+                            <?php
+                                $recordingUrls = [];
+                                $primary = $toUrl($recording);
+                                if ($primary !== '') $recordingUrls[$primary] = true;
+                                foreach ($recordingFileRows as $rf) {
+                                    $p = $toUrl((string)($rf['file_path'] ?? ''));
+                                    if ($p !== '') $recordingUrls[$p] = true;
+                                }
+                                $recordingList = array_keys($recordingUrls);
+                            ?>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="text-muted small">Recordings</div>
+                                <span class="badge text-bg-light border"><?php echo number_format(count($recordingList)); ?></span>
+                            </div>
+                            <?php if (!empty($recordingList)): ?>
+                                <div class="mt-2 d-flex flex-column gap-2">
+                                    <?php foreach ($recordingList as $idxR => $urlR): ?>
+                                        <div class="border rounded p-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <div class="small fw-semibold">Recording <?php echo (int)$idxR + 1; ?></div>
+                                                <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars($urlR); ?>" download><i class="bi bi-download me-1"></i>Download</a>
+                                            </div>
+                                            <audio controls class="w-100" style="height: 34px;">
+                                                <source src="<?php echo htmlspecialchars($urlR); ?>" type="audio/mpeg">
+                                            </audio>
+                                        </div>
+                                    <?php endforeach; ?>
                                 </div>
                             <?php else: ?>
                                 <div class="fw-semibold">—</div>

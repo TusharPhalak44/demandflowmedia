@@ -6,6 +6,8 @@ requireRole('admin');
 ensureDatabaseSchema();
 
 $conn = getDbConnection();
+$currentUser = getCurrentUser() ?: [];
+$taskWidget = function_exists('getMyTaskWidgetCounts') ? getMyTaskWidgetCounts((int)($currentUser['id'] ?? 0)) : ['pending' => 0, 'due_today' => 0, 'overdue' => 0];
 $now = new DateTime();
 $todayDate = $now->format('Y-m-d');
 $todayStart = $todayDate . ' 00:00:00';
@@ -539,6 +541,20 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                             <div class="text-info fs-4"><i class="bi bi-currency-dollar"></i></div>
                         </div>
                     </div>
+                </div>
+                <div class="col-6 col-lg-2">
+                    <a class="text-decoration-none" href="<?php echo htmlspecialchars(appBasePath() . '/modules/tasks'); ?>">
+                        <div class="card border-0 shadow-sm h-100 kpi-tile kpi-warning">
+                            <div class="card-body d-flex align-items-center justify-content-between">
+                                <div>
+                                    <div class="text-muted small">My Tasks</div>
+                                    <div class="h4 mb-0"><?php echo number_format((int)$taskWidget['pending']); ?></div>
+                                    <div class="small text-muted">Due: <?php echo number_format((int)$taskWidget['due_today']); ?> • Overdue: <?php echo number_format((int)$taskWidget['overdue']); ?></div>
+                                </div>
+                                <div class="text-warning fs-4"><i class="bi bi-kanban"></i></div>
+                            </div>
+                        </div>
+                    </a>
                 </div>
             </div>
         </div>

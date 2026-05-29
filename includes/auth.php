@@ -594,24 +594,24 @@ function getCustomRolesConfig(): array {
 function getDefaultAccessRolePermissionsConfig(): array {
     return [
         'admin' => ['*'],
-        'director' => ['dashboard.admin','notifications.access','chat.access','admin.settings','admin.analytics','users.internal.manage','clients.users.manage','vendors.users.manage','leads.manage','leads.export','campaigns.manage','campaigns.export','forms.manage','qa.access','qa.assignments','sales.access','clients.access','vendors.access','revenue.access','hr.access','hr.attendance','hr.leaves','hr.payslips','hr.attendance_admin','hr.shifts','hr.payroll'],
-        'manager_director' => ['dashboard.admin','notifications.access','chat.access','admin.analytics','users.internal.manage','clients.users.manage','vendors.users.manage','leads.manage','leads.export','campaigns.manage','campaigns.export','forms.manage','qa.access','qa.assignments','sales.access','clients.access','vendors.access','revenue.access','hr.access','hr.attendance','hr.leaves','hr.payslips','hr.attendance_admin','hr.shifts','hr.payroll'],
-        'operations_director' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.export','leads.entry','leads.bulk_upload','leads.tracking','campaigns.view','campaigns.export','clients.access','vendors.access','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'operations_manager' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.export','leads.entry','leads.bulk_upload','leads.tracking','campaigns.view','campaigns.export','clients.access','vendors.access','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'operations_agent' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.entry','leads.my','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'agent' => ['dashboard.operations','notifications.access','chat.access','leads.entry','leads.my','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'email_marketing_director' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','campaigns.export','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'email_marketing_manager' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','campaigns.export','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'email_marketing_agent' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'email_marketing_executive' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'form_filler' => ['dashboard.marketing','notifications.access','chat.access','leads.entry','leads.marketing','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'qa_director' => ['dashboard.qa','notifications.access','chat.access','qa.access','qa.assignments','leads.view','leads.export','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'qa_manager' => ['dashboard.qa','notifications.access','chat.access','qa.access','qa.assignments','leads.view','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'qa_agent' => ['dashboard.qa','notifications.access','chat.access','qa.access','leads.view','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'qa' => ['dashboard.qa','notifications.access','chat.access','qa.access','leads.view','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'sales_director' => ['dashboard.sales','notifications.access','chat.access','sales.access','campaigns.view','leads.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'sales_manager' => ['dashboard.sales','notifications.access','chat.access','sales.access','campaigns.view','leads.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
-        'sdr' => ['dashboard.sales','notifications.access','chat.access','sales.access','leads.view','hr.access','hr.attendance','hr.leaves','hr.payslips'],
+        'director' => ['dashboard.admin','notifications.access','chat.access','admin.settings','admin.analytics','users.internal.manage','clients.users.manage','vendors.users.manage','leads.manage','leads.export','campaigns.manage','campaigns.export','forms.manage','qa.access','qa.assignments','sales.access','clients.access','vendors.access','revenue.access','hr.access','hr.attendance','hr.leaves','hr.payslips','hr.attendance_admin','hr.shifts','hr.payroll','tasks.access','tasks.create','tasks.manage','tasks.assign','tasks.override','tasks.reports'],
+        'manager_director' => ['dashboard.admin','notifications.access','chat.access','admin.analytics','users.internal.manage','clients.users.manage','vendors.users.manage','leads.manage','leads.export','campaigns.manage','campaigns.export','forms.manage','qa.access','qa.assignments','sales.access','clients.access','vendors.access','revenue.access','hr.access','hr.attendance','hr.leaves','hr.payslips','hr.attendance_admin','hr.shifts','hr.payroll','tasks.access','tasks.create','tasks.manage','tasks.assign','tasks.override','tasks.reports'],
+        'operations_director' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.export','leads.entry','leads.bulk_upload','leads.tracking','campaigns.view','campaigns.export','clients.access','vendors.access','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access','tasks.create','tasks.manage','tasks.assign','tasks.reports'],
+        'operations_manager' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.export','leads.entry','leads.bulk_upload','leads.tracking','campaigns.view','campaigns.export','clients.access','vendors.access','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access','tasks.create','tasks.manage','tasks.assign','tasks.reports'],
+        'operations_agent' => ['dashboard.operations','notifications.access','chat.access','leads.manage','leads.entry','leads.my','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access'],
+        'agent' => ['dashboard.operations','notifications.access','chat.access','leads.entry','leads.my','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access'],
+        'email_marketing_director' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','campaigns.export','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access','tasks.create','tasks.manage','tasks.assign','tasks.reports'],
+        'email_marketing_manager' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','campaigns.export','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access','tasks.create','tasks.manage','tasks.assign','tasks.reports'],
+        'email_marketing_agent' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access'],
+        'email_marketing_executive' => ['dashboard.marketing','notifications.access','chat.access','leads.manage','leads.entry','leads.marketing','leads.email','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access'],
+        'form_filler' => ['dashboard.marketing','notifications.access','chat.access','leads.entry','leads.marketing','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access'],
+        'qa_director' => ['dashboard.qa','notifications.access','chat.access','qa.access','qa.assignments','leads.view','leads.export','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access','tasks.create','tasks.manage','tasks.assign','tasks.reports'],
+        'qa_manager' => ['dashboard.qa','notifications.access','chat.access','qa.access','qa.assignments','leads.view','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access','tasks.create','tasks.manage','tasks.assign','tasks.reports'],
+        'qa_agent' => ['dashboard.qa','notifications.access','chat.access','qa.access','leads.view','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access'],
+        'qa' => ['dashboard.qa','notifications.access','chat.access','qa.access','leads.view','campaigns.view','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access'],
+        'sales_director' => ['dashboard.sales','notifications.access','chat.access','sales.access','campaigns.view','leads.view','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access','tasks.create','tasks.manage','tasks.assign','tasks.reports'],
+        'sales_manager' => ['dashboard.sales','notifications.access','chat.access','sales.access','campaigns.view','leads.view','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access','tasks.create','tasks.manage','tasks.assign','tasks.reports'],
+        'sdr' => ['dashboard.sales','notifications.access','chat.access','sales.access','leads.view','hr.access','hr.attendance','hr.leaves','hr.payslips','tasks.access'],
         'client_admin' => ['dashboard.client','notifications.access','leads.view','campaigns.view','clients.users.manage'],
         'client_sdr' => ['dashboard.client','notifications.access','leads.view','campaigns.view'],
         'vendor_admin' => ['dashboard.vendor','notifications.access','leads.view','leads.entry','leads.bulk_upload','leads.my','campaigns.view','vendors.users.manage','vendors.access','revenue.access'],
@@ -1030,6 +1030,13 @@ function inferPermissionKeyForRequest(): ?string {
         if (str_contains($rest, 'export')) return 'leads.export';
         if (preg_match('/(^|\\/)(view)(\\/|$)/', $rest)) return 'leads.view';
         return 'leads.view';
+    }
+
+    if ($module === 'tasks') {
+        if (preg_match('/(^|\\/)(create|task-create|task-create\\.php)(\\/|$)/', $rest)) return 'tasks.create';
+        if (preg_match('/(^|\\/)(reports|report|task-reports|reports\\.php)(\\/|$)/', $rest)) return 'tasks.reports';
+        if (preg_match('/(^|\\/)(api|deadline-run)(\\/|$)/', $rest)) return 'tasks.manage';
+        return 'tasks.access';
     }
 
     return $module . '.access';

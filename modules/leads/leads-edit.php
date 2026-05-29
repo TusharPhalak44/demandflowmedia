@@ -469,6 +469,7 @@ $agents = getAgents();
                     <?php
                         $name = trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? ''));
                         $rec = $normalizeRecordingUrl($lead['recording_path'] ?? '');
+                        $recCount = (int)($lead['recording_count'] ?? 0);
                         $qaStatusRow = $lead['qa_status'] ?? 'Pending';
                         $qaClass = 'bg-warning-subtle text-warning';
                         if ($qaStatusRow === 'Qualified') $qaClass = 'bg-success-subtle text-success';
@@ -525,6 +526,12 @@ $agents = getAgents();
                             </div>
                             <div class="card-footer bg-white border-0 pt-0">
                                 <div class="d-flex justify-content-end gap-2 flex-wrap">
+                                    <?php if ($recCount > 0): ?>
+                                        <a class="btn btn-sm btn-light border position-relative" href="view?id=<?php echo (int)$lead['id']; ?>#recordings" title="Recordings (<?php echo (int)$recCount; ?>)">
+                                            <i class="bi bi-mic"></i>
+                                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-primary"><?php echo (int)$recCount; ?></span>
+                                        </a>
+                                    <?php endif; ?>
                                     <?php if (!empty($rec)): ?>
                                         <button type="button" class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#recordingModal" data-lead-name="<?php echo htmlspecialchars($name); ?>" data-recording="<?php echo htmlspecialchars($rec); ?>" title="Play Recording">
                                             <i class="bi bi-play-fill"></i>
@@ -612,7 +619,8 @@ $agents = getAgents();
                         <?php foreach ($leads as $i => $lead): ?>
                             <?php 
                                 $name = trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? ''));
-                            $rec = $normalizeRecordingUrl($lead['recording_path'] ?? '');
+                                $rec = $normalizeRecordingUrl($lead['recording_path'] ?? '');
+                                $recCount = (int)($lead['recording_count'] ?? 0);
                                 $canEditRow = $isPrivInternal || ((int)($lead['agent_id'] ?? 0) === (int)($user['id'] ?? 0));
                             ?>
                             <tr>
@@ -653,6 +661,12 @@ $agents = getAgents();
                                 </td>
                                 <td class="text-end pe-3 sticky-actions">
                                     <div class="btn-group btn-group-sm">
+                                        <?php if ($recCount > 0): ?>
+                                            <a class="btn btn-light border position-relative" href="view?id=<?php echo (int)$lead['id']; ?>#recordings" title="Recordings (<?php echo (int)$recCount; ?>)">
+                                                <i class="bi bi-mic"></i>
+                                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-primary"><?php echo (int)$recCount; ?></span>
+                                            </a>
+                                        <?php endif; ?>
                                         <?php if (!empty($rec)): ?>
                                             <button type="button" class="btn btn-light border" data-bs-toggle="modal" data-bs-target="#recordingModal" data-lead-name="<?php echo htmlspecialchars($name); ?>" data-recording="<?php echo htmlspecialchars($rec); ?>" title="Play Recording">
                                                 <i class="bi bi-play-fill"></i>

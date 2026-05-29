@@ -4447,6 +4447,7 @@ function ensureDatabaseSchema(): void {
     ensureTeamSchema();
     ensureAppSettingsSchema();
     ensureUserIpAccessSchema();
+    ensureTaskManagementSchema();
 
     $conn->query("CREATE TABLE IF NOT EXISTS holidays (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -6539,10 +6540,18 @@ function getSelectOptionsByFormSchema(array $schema, array $keys): array {
 }
 
 function valueInAllowedOptions(?string $value, array $options): bool {
-    $v = trim((string)$value);
+    $normalize = function(string $s): string {
+        $s = str_replace(["\xC2\xA0", "\xE2\x80\xAF", "\xE2\x80\xA8", "\xE2\x80\xA9"], ' ', $s);
+        $s = trim($s);
+        $s = preg_replace('/\s+/u', ' ', $s);
+        return (string)$s;
+    };
+    $v = $normalize((string)$value);
     if ($v === '') return true;
     foreach ($options as $o) {
-        if (strcasecmp($v, (string)$o) === 0) return true;
+        $oo = $normalize((string)$o);
+        if ($oo === '') continue;
+        if (strcasecmp($v, $oo) === 0) return true;
     }
     return false;
 }
@@ -8431,6 +8440,229 @@ function ensureTeamSchema(): void {
     $verified = true;
 }
 
+function ensureTaskManagementSchema(): void {
+    static $verified = false;
+    if ($verified) return;
+    $conn = getDbConnection();
+
+    @$conn->query("CREATE TABLE IF NOT EXISTS tasks (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        task_code VARCHAR(24) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        category VARCHAR(80) NULL,
+        department VARCHAR(80) NULL,
+        related_department VARCHAR(80) NULL,
+        priority ENUM('Critical','High','Medium','Low') NOT NULL DEFAULT 'Medium',
+        status ENUM('Not Started','Assigned','In Progress','Waiting For Input','On Hold','Under Review','Completed','Rejected','Cancelled','Overdue') NOT NULL DEFAULT 'Assigned',
+        progress TINYINT NOT NULL DEFAULT 0,
+        task_type VARCHAR(40) NOT NULL DEFAULT 'General Task',
+        description MEDIUMTEXT NULL,
+        instructions MEDIUMTEXT NULL,
+        notes MEDIUMTEXT NULL,
+        checklist_total INT NOT NULL DEFAULT 0,
+        checklist_done INT NOT NULL DEFAULT 0,
+        expected_hours DECIMAL(6,2) NULL,
+        start_at DATETIME NULL,
+        due_at DATETIME NULL,
+        completed_at DATETIME NULL,
+        campaign_id INT NULL,
+        lead_id INT NULL,
+        sales_lead_id INT NULL,
+        qa_audit_log_id INT NULL,
+        client_id INT NULL,
+        vendor_id INT NULL,
+        team_id INT NULL,
+        deadline_warning_level TINYINT NOT NULL DEFAULT 0,
+        escalation_level TINYINT NOT NULL DEFAULT 0,
+        created_by INT NOT NULL,
+        updated_by INT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NULL,
+        UNIQUE KEY uniq_task_code (task_code),
+        INDEX idx_status (status),
+        INDEX idx_priority (priority),
+        INDEX idx_department (department),
+        INDEX idx_due (due_at),
+        INDEX idx_created (created_at),
+        INDEX idx_created_by (created_by)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    @$conn->query("CREATE TABLE IF NOT EXISTS task_assignees (
+        task_id INT NOT NULL,
+        user_id INT NOT NULL,
+        assigned_by INT NOT NULL,
+        assigned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (task_id, user_id),
+        INDEX idx_user (user_id),
+        INDEX idx_task (task_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    @$conn->query("CREATE TABLE IF NOT EXISTS task_checklist_items (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        task_id INT NOT NULL,
+        item_text VARCHAR(255) NOT NULL,
+        is_done TINYINT(1) NOT NULL DEFAULT 0,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_by INT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        completed_at DATETIME NULL,
+        INDEX idx_task (task_id),
+        INDEX idx_done (is_done)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    @$conn->query("CREATE TABLE IF NOT EXISTS task_comments (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        task_id INT NOT NULL,
+        user_id INT NOT NULL,
+        body TEXT NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_task (task_id),
+        INDEX idx_user (user_id),
+        INDEX idx_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    @$conn->query("CREATE TABLE IF NOT EXISTS task_files (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        task_id INT NOT NULL,
+        user_id INT NOT NULL,
+        file_path VARCHAR(255) NOT NULL,
+        original_name VARCHAR(255) NULL,
+        file_size INT NULL,
+        mime_type VARCHAR(120) NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_task (task_id),
+        INDEX idx_user (user_id),
+        INDEX idx_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    @$conn->query("CREATE TABLE IF NOT EXISTS task_activity (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        task_id INT NOT NULL,
+        user_id INT NULL,
+        action VARCHAR(40) NOT NULL,
+        meta_json TEXT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_task (task_id),
+        INDEX idx_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    @$conn->query("CREATE TABLE IF NOT EXISTS task_time_logs (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        task_id INT NOT NULL,
+        user_id INT NOT NULL,
+        event ENUM('opened','started','paused','resumed','completed') NOT NULL,
+        event_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_task (task_id),
+        INDEX idx_user (user_id),
+        INDEX idx_event_at (event_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    @$conn->query("CREATE TABLE IF NOT EXISTS task_deadline_alerts (
+        task_id INT NOT NULL PRIMARY KEY,
+        last_level TINYINT NOT NULL DEFAULT 0,
+        last_sent_at DATETIME NULL,
+        INDEX idx_level (last_level)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    @$conn->query("CREATE TABLE IF NOT EXISTS task_escalations (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        task_id INT NOT NULL,
+        level TINYINT NOT NULL,
+        reason VARCHAR(255) NULL,
+        triggered_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        notified_user_ids TEXT NULL,
+        INDEX idx_task (task_id),
+        INDEX idx_level (level),
+        INDEX idx_triggered (triggered_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $verified = true;
+}
+
+function generateTaskCode(): string {
+    return 'TSK' . date('Ymd') . strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
+}
+
+function logTaskActivity(int $taskId, ?int $userId, string $action, array $meta = []): void {
+    if ($taskId <= 0) return;
+    $action = trim($action);
+    if ($action === '') return;
+    ensureTaskManagementSchema();
+    $conn = getDbConnection();
+    $metaJson = !empty($meta) ? json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : null;
+    $stmt = $conn->prepare("INSERT INTO task_activity (task_id, user_id, action, meta_json, created_at) VALUES (?,?,?,?,NOW())");
+    if (!$stmt) return;
+    $uid = $userId !== null ? (int)$userId : null;
+    $stmt->bind_param('iiss', $taskId, $uid, $action, $metaJson);
+    @$stmt->execute();
+    $stmt->close();
+}
+
+function extractMentionUserIds(string $text): array {
+    $text = (string)$text;
+    if ($text === '') return [];
+    preg_match_all('/@([a-zA-Z0-9._-]{2,50})/', $text, $m);
+    $names = $m[1] ?? [];
+    if (!is_array($names) || empty($names)) return [];
+    $names = array_values(array_unique(array_map('strtolower', array_map('trim', $names))));
+    $names = array_values(array_filter($names, fn($x) => $x !== ''));
+    if (empty($names)) return [];
+    $conn = getDbConnection();
+    $in = implode(',', array_fill(0, count($names), '?'));
+    $types = str_repeat('s', count($names));
+    $sql = "SELECT id FROM users WHERE is_active = 1 AND LOWER(username) IN ($in)";
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) return [];
+    $stmt->bind_param($types, ...$names);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC) ?: [];
+    $stmt->close();
+    $ids = [];
+    foreach ($rows as $r) { $ids[] = (int)($r['id'] ?? 0); }
+    $ids = array_values(array_filter(array_unique($ids), fn($x) => $x > 0));
+    return $ids;
+}
+
+function notifyTaskUsers(array $userIds, string $type, string $title, string $message, string $link, array $meta = []): void {
+    if (!function_exists('createNotificationSmart')) return;
+    $u = [];
+    foreach ($userIds as $id) {
+        $id = (int)$id;
+        if ($id > 0) $u[$id] = true;
+    }
+    $uids = array_keys($u);
+    if (empty($uids)) return;
+    foreach ($uids as $uid) {
+        createNotificationSmart($uid, $type, $title, $message, $link, $meta);
+    }
+}
+
+function getMyTaskWidgetCounts(int $userId): array {
+    $userId = (int)$userId;
+    if ($userId <= 0) return ['pending' => 0, 'due_today' => 0, 'overdue' => 0];
+    ensureTaskManagementSchema();
+    $conn = getDbConnection();
+    $stmt = $conn->prepare("
+        SELECT
+            SUM(CASE WHEN t.status NOT IN ('Completed','Cancelled','Rejected') THEN 1 ELSE 0 END) AS pending_cnt,
+            SUM(CASE WHEN t.due_at IS NOT NULL AND DATE(t.due_at) = CURDATE() AND t.status NOT IN ('Completed','Cancelled','Rejected') THEN 1 ELSE 0 END) AS due_today_cnt,
+            SUM(CASE WHEN t.due_at IS NOT NULL AND t.due_at < NOW() AND t.status NOT IN ('Completed','Cancelled','Rejected') THEN 1 ELSE 0 END) AS overdue_cnt
+        FROM tasks t
+        JOIN task_assignees ta ON ta.task_id = t.id
+        WHERE ta.user_id = ?
+    ");
+    if (!$stmt) return ['pending' => 0, 'due_today' => 0, 'overdue' => 0];
+    $stmt->bind_param('i', $userId);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc() ?: [];
+    $stmt->close();
+    return [
+        'pending' => (int)($row['pending_cnt'] ?? 0),
+        'due_today' => (int)($row['due_today_cnt'] ?? 0),
+        'overdue' => (int)($row['overdue_cnt'] ?? 0),
+    ];
+}
+
 function ensureAppSettingsSchema(): void {
     static $verified = false;
     if ($verified) return;
@@ -9024,6 +9256,7 @@ function getLeads(array $filters = [], int $perPage = 25, int $page = 1): array 
         "LEFT JOIN clients cl ON cl.id = d.client_id",
         "LEFT JOIN users u ON l.agent_id = u.id",
         "LEFT JOIN users au ON l.assigned_to_user = au.id",
+        "LEFT JOIN (SELECT lead_id, COUNT(*) AS call_recording_count FROM lead_files WHERE field_id = 'call_recording' GROUP BY lead_id) lfr ON lfr.lead_id = l.id",
     ];
     if ($includeSubmission) {
         $joins[] = "LEFT JOIN (
@@ -9105,7 +9338,10 @@ function getLeads(array $filters = [], int $perPage = 25, int $page = 1): array 
     $sql = "SELECT l.*, $selectSubmission, c.name AS campaign_name, u.full_name AS agent_name,
                    d.code AS campaign_code, d.client_id AS client_id,
                    cl.client_code AS client_code, cl.name AS client_name,
-                   au.id AS assigned_to_id, au.full_name AS assigned_to_name, au.role AS assigned_to_role
+                   au.id AS assigned_to_id, au.full_name AS assigned_to_name, au.role AS assigned_to_role,
+                   CASE WHEN COALESCE(lfr.call_recording_count, 0) > 0 THEN COALESCE(lfr.call_recording_count, 0)
+                        ELSE (CASE WHEN l.recording_path IS NOT NULL AND l.recording_path <> '' THEN 1 ELSE 0 END)
+                   END AS recording_count
             FROM $fromTable
             $joinSql
             WHERE $whereSql
@@ -9136,6 +9372,7 @@ function getLeadsNoPagination(array $filters = []): array {
         "LEFT JOIN clients cl ON cl.id = d.client_id",
         "LEFT JOIN users u ON l.agent_id = u.id",
         "LEFT JOIN users au ON l.assigned_to_user = au.id",
+        "LEFT JOIN (SELECT lead_id, COUNT(*) AS call_recording_count FROM lead_files WHERE field_id = 'call_recording' GROUP BY lead_id) lfr ON lfr.lead_id = l.id",
         "LEFT JOIN (
             SELECT fs1.lead_id, fs1.campaign_id, fs1.data_json
             FROM form_submissions fs1
@@ -9203,7 +9440,10 @@ function getLeadsNoPagination(array $filters = []): array {
     $sql = "SELECT l.*, fs.data_json AS submission_data_json, c.name AS campaign_name, u.full_name AS agent_name,
                    d.code AS campaign_code, d.client_id AS client_id,
                    cl.client_code AS client_code, cl.name AS client_name,
-                   au.id AS assigned_to_id, au.full_name AS assigned_to_name, au.role AS assigned_to_role
+                   au.id AS assigned_to_id, au.full_name AS assigned_to_name, au.role AS assigned_to_role,
+                   CASE WHEN COALESCE(lfr.call_recording_count, 0) > 0 THEN COALESCE(lfr.call_recording_count, 0)
+                        ELSE (CASE WHEN l.recording_path IS NOT NULL AND l.recording_path <> '' THEN 1 ELSE 0 END)
+                   END AS recording_count
             FROM leads l
             $joinSql
             WHERE $whereSql

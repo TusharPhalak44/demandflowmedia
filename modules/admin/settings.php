@@ -107,6 +107,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'invoice.created' => 'Invoice created',
                 'invoice.status_changed' => 'Invoice status updated',
                 'invoice.paid' => 'Invoice marked paid',
+                'task.assigned' => 'Task: assigned',
+                'task.status_changed' => 'Task: status changed',
+                'task.progress' => 'Task: progress updated',
+                'task.comment' => 'Task: comment added',
+                'task.mention' => 'Task: mentioned',
+                'task.file_uploaded' => 'Task: file uploaded',
+                'task.completed' => 'Task: completed',
+                'task.rejected' => 'Task: rejected',
+                'task.overdue' => 'Task: overdue',
+                'task.escalated' => 'Task: escalated',
+                'task.deadline.warning.24h' => 'Task: deadline 24h warning',
+                'task.deadline.warning.12h' => 'Task: deadline 12h warning',
+                'task.deadline.warning.6h' => 'Task: deadline 6h warning',
+                'task.deadline.warning.1h' => 'Task: deadline 1h warning',
             ];
             $defaults = [];
             foreach ($eventTypes as $type => $_label) {
@@ -316,6 +330,20 @@ $notifEventTypes = [
     'invoice.created' => 'Invoice created',
     'invoice.status_changed' => 'Invoice status updated',
     'invoice.paid' => 'Invoice marked paid',
+    'task.assigned' => 'Task: assigned',
+    'task.status_changed' => 'Task: status changed',
+    'task.progress' => 'Task: progress updated',
+    'task.comment' => 'Task: comment added',
+    'task.mention' => 'Task: mentioned',
+    'task.file_uploaded' => 'Task: file uploaded',
+    'task.completed' => 'Task: completed',
+    'task.rejected' => 'Task: rejected',
+    'task.overdue' => 'Task: overdue',
+    'task.escalated' => 'Task: escalated',
+    'task.deadline.warning.24h' => 'Task: deadline 24h warning',
+    'task.deadline.warning.12h' => 'Task: deadline 12h warning',
+    'task.deadline.warning.6h' => 'Task: deadline 6h warning',
+    'task.deadline.warning.1h' => 'Task: deadline 1h warning',
 ];
 $bannerIncentivesEnabled = (string)(getAppSetting('dashboard.banner.incentives.enabled', '1') ?? '1') === '1';
 $bannerIncentivesItems = (string)(getAppSetting('dashboard.banner.incentives.items', '') ?? '');
@@ -654,7 +682,7 @@ include __DIR__ . '/../../includes/layout/app_start.php';
                                                     $enabled = $d ? ((int)($d['enabled'] ?? 1) === 1) : true;
                                                     $mode = $d ? (string)($d['mode'] ?? 'instant') : 'instant';
                                                     if (!in_array($mode, ['instant','digest'], true)) $mode = 'instant';
-                                                    $toast = $d ? ((int)($d['toast'] ?? 0) === 1) : in_array($type, ['campaign.end_warning','campaign.pacing_risk','sales.followup_reminder','chat.message','chat.group_message','lead.created','lead.updated'], true);
+                                                    $toast = $d ? ((int)($d['toast'] ?? 0) === 1) : in_array($type, ['campaign.end_warning','campaign.pacing_risk','sales.followup_reminder','chat.message','chat.group_message','lead.created','lead.updated','task.assigned','task.comment','task.mention','task.completed','task.rejected','task.overdue','task.escalated','task.deadline.warning.24h','task.deadline.warning.12h','task.deadline.warning.6h','task.deadline.warning.1h'], true);
                                                 ?>
                                                 <tr>
                                                     <td class="fw-semibold"><?php echo htmlspecialchars($label); ?><div class="text-muted small"><?php echo htmlspecialchars($type); ?></div></td>

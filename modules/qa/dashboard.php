@@ -6,6 +6,7 @@ requireRole(['admin','qa','qa_agent','qa_manager','qa_director']);
 $user = getCurrentUser();
 $userId = (int)($user['id'] ?? 0);
 $role = (string)($user['role'] ?? '');
+$taskWidget = function_exists('getMyTaskWidgetCounts') ? getMyTaskWidgetCounts($userId) : ['pending' => 0, 'due_today' => 0, 'overdue' => 0];
 
 try {
   $now = new DateTime();
@@ -335,6 +336,22 @@ foreach ($campaignWorkload as $r) {
           </div>
         </div>
       </div>
+    </div>
+    <div class="col-md-3">
+      <a class="text-decoration-none" href="<?php echo htmlspecialchars(appBasePath() . '/modules/tasks'); ?>">
+        <div class="card stats-card h-100 border-0 shadow-sm">
+          <div class="card-body">
+            <div class="d-flex align-items-center mb-3">
+              <div class="stats-icon bg-warning-subtle text-warning rounded-3 p-2 me-3">
+                <i class="bi bi-kanban fs-4"></i>
+              </div>
+              <h6 class="card-subtitle text-muted mb-0">My Tasks</h6>
+            </div>
+            <h3 class="card-title mb-0"><?php echo number_format((int)$taskWidget['pending']); ?></h3>
+            <div class="text-muted small mt-1">Due: <?php echo number_format((int)$taskWidget['due_today']); ?> · Overdue: <?php echo number_format((int)$taskWidget['overdue']); ?></div>
+          </div>
+        </div>
+      </a>
     </div>
   </div>
 
