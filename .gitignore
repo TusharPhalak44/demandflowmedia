@@ -1,0 +1,3 @@
+# PHP session files (runtime, per-user)
+tmp/sessions/
+**/sess_*
