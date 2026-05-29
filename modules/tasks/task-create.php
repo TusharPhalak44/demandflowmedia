@@ -179,6 +179,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $conn->prepare("INSERT INTO tasks (task_code, title, category, department, related_department, priority, status, progress, task_type, description, instructions, notes, expected_hours, start_at, due_at, campaign_id, lead_id, sales_lead_id, client_id, vendor_id, team_id, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())");
                 if (!$stmt) { $taskCode = ''; break; }
                 $prog = 0;
+                $categoryVal = $category !== '' ? $category : null;
+                $relatedDeptVal = $relatedDepartment !== '' ? $relatedDepartment : null;
+                $descriptionVal = $description !== '' ? $description : null;
+                $instructionsVal = $instructions !== '' ? $instructions : null;
+                $notesVal = $notes !== '' ? $notes : null;
                 $cid = $campaignId > 0 ? $campaignId : null;
                 $lid = $leadId > 0 ? $leadId : null;
                 $slid = $salesLeadId > 0 ? $salesLeadId : null;
@@ -186,19 +191,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $vid = $vendorId > 0 ? $vendorId : null;
                 $tid = $teamId > 0 ? $teamId : null;
                 $stmt->bind_param(
-                    'sssssssisisssdssiiiiiii',
+                    'sssssssissssdssiiiiiii',
                     $taskCode,
                     $title,
-                    ($category !== '' ? $category : null),
+                    $categoryVal,
                     $department,
-                    ($relatedDepartment !== '' ? $relatedDepartment : null),
+                    $relatedDeptVal,
                     $priority,
                     $status,
                     $prog,
                     $taskType,
-                    ($description !== '' ? $description : null),
-                    ($instructions !== '' ? $instructions : null),
-                    ($notes !== '' ? $notes : null),
+                    $descriptionVal,
+                    $instructionsVal,
+                    $notesVal,
                     $eh,
                     $startAt,
                     $dueAt,
